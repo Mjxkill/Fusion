@@ -3140,6 +3140,76 @@ describe("ProjectEngine paused in-review auto-merge behavior", () => {
     expect(await engine.isMergePending("FN-MERGE-WAITING")).toBe(false);
   });
 
+  /*
+  FNXC:ConcurrencyAdmission 2026-11-15-11:01:
+  Regression for review starvation (observed live: a merge waited 45 min behind a planning backlog, then timed out).
+  When a slot frees, a capacity-deferred merge must win over planning in the shared project admission pass (keyed by the project root), instead of waiting for its own retry timer.
+  */
+  it("gives a freed slot to a capacity-deferred merge before older planning work", async () => {
+    const mockStore = createMockStore({ ...baseSettings, autoMerge: true, maxConcurrent: 1, maxWorktrees: 1 });
+    mockStore.store.getTask.mockResolvedValue({
+      id: "FN-STARVED-MERGE",
+      column: "in-review",
+      paused: false,
+      mergeRetries: 0,
+      status: null,
+      branch: "fusion/fn-starved-merge",
+      createdAt: "2026-01-01T00:00:00.000Z",
+    });
+    mocks.currentStore = mockStore.store;
+
+    const engine = createEngine();
+    await engine.start();
+    let holderLive = true;
+    mockStore.store.listTasks.mockImplementation(async (options?: { slim?: boolean }) => options?.slim === false && holderLive
+      ? [{
+          id: "FN-LIVE-PLANNER",
+          column: "todo",
+          paused: false,
+          status: null,
+          workflowStepResults: [{
+            workflowStepId: "code-review",
+            workflowStepName: "Code Review",
+            phase: "pre-merge",
+            source: "optional-group",
+            status: "pending",
+            startedAt: "2026-08-01T00:00:00.000Z",
+          }],
+        }]
+      : []);
+
+    engine.enqueueMerge("FN-STARVED-MERGE");
+    const privateEngine = engine as unknown as { capacityDeferredMergeTaskIds: Set<string> };
+    await vi.waitFor(() => expect(privateEngine.capacityDeferredMergeTaskIds.has("FN-STARVED-MERGE")).toBe(true));
+    expect(mocks.runAiMerge).not.toHaveBeenCalled();
+
+    // The holder finishes; a planning lane (older card) asks for the freed slot before the merge's retry timer.
+    holderLive = false;
+    const planningStart = vi.fn(async () => true);
+    const admitted = await projectAdmissionCoordinator.admitNext({
+      projectId: "/tmp/proj_test",
+      maxConcurrent: 1,
+      claimed: () => 0,
+      refresh: async () => [{
+        taskId: "FN-OLD-PLAN",
+        projectId: "/tmp/proj_test",
+        lane: "planning",
+        createdAt: "2025-01-01T00:00:00.000Z",
+        start: planningStart,
+      }],
+    });
+
+    expect(admitted).toBe("FN-STARVED-MERGE");
+    expect(planningStart).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(mocks.runAiMerge).toHaveBeenCalledWith(
+      mockStore.store,
+      "/tmp/proj_test",
+      "FN-STARVED-MERGE",
+      expect.any(Object),
+    ));
+    await engine.stop();
+  });
+
   it("records an audit event (not silent) when auto-promotion of a branch-group member fails (Fix #4)", async () => {
     const mockStore = createMockStore({ ...baseSettings, autoMerge: true });
     // The dequeued + merged task is a shared branch-group member, so the engine
