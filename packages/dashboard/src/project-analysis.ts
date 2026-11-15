@@ -284,17 +284,62 @@ export function normaliseProjectAnalysisPlan(raw: unknown): ProjectAnalysisPlan 
   return { summary: str(source.summary), goals, missions };
 }
 
+/**
+ * FNXC:ProjectAnalysis 2026-11-15-11:40:
+ * First real run (videasy, deepseek-v4.1-flash) failed with "no mission" although the streamed tail was a mission JSON.
+ * The generic extractor keeps the LARGEST VALID object, so one syntax slip in a long plan (or a plan split across messages) let a single nested feature win.
+ * Parse the whole span first (first "{" to last "}", then with repairJson), fall back to the extractor, and report the real JSON error instead of "no mission".
+ */
 export function parseProjectAnalysisResponse(text: string): ProjectAnalysisPlan {
-  const candidate = extractJsonCandidate(text) ?? text;
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(candidate);
-  } catch {
-    parsed = JSON.parse(repairJson(candidate));
+  const attempts: string[] = [];
+  const fromPlan = (raw: unknown): ProjectAnalysisPlan | null => {
+    const plan = normaliseProjectAnalysisPlan(raw);
+    return plan.missions.length > 0 ? plan : null;
+  };
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start >= 0 && end > start) {
+    const span = text.slice(start, end + 1);
+    for (const candidate of [span, repairJson(span)]) {
+      try {
+        const plan = fromPlan(JSON.parse(candidate));
+        if (plan) return plan;
+        attempts.push("whole response parsed but contains no mission");
+      } catch (error) {
+        attempts.push(`whole response is not valid JSON (${error instanceof Error ? error.message : String(error)})`);
+      }
+    }
   }
-  const plan = normaliseProjectAnalysisPlan(parsed);
-  if (plan.missions.length === 0) throw new Error("The analysis returned no mission");
-  return plan;
+  const extracted = extractJsonCandidate(text);
+  if (extracted) {
+    try {
+      const plan = fromPlan(JSON.parse(extracted));
+      if (plan) return plan;
+      attempts.push("largest valid JSON fragment contains no mission");
+    } catch (error) {
+      attempts.push(`extracted fragment invalid (${error instanceof Error ? error.message : String(error)})`);
+    }
+  }
+  throw new Error(`The analysis returned no usable plan: ${attempts.join("; ") || "no JSON object in the response"}`);
+}
+
+function tryParsePlan(text: string): { ok: true } | { ok: false; error: string } {
+  try {
+    parseProjectAnalysisResponse(text);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+/** Raw agent output of the last failed parse, kept for diagnosis (never shown in the UI). */
+async function saveRawResponse(rootDir: string, text: string): Promise<void> {
+  try {
+    await mkdir(join(rootDir, ".fusion", "project-analysis"), { recursive: true });
+    await writeFile(join(rootDir, ".fusion", "project-analysis", "last-failed-response.txt"), text, "utf8");
+  } catch {
+    // Diagnosis aid only.
+  }
 }
 
 // ── Apply ────────────────────────────────────────────────────────────────────
@@ -588,13 +633,45 @@ async function runAnalysisAgent(
       if (!last?.content) return "";
       return typeof last.content === "string" ? last.content : last.content.filter((part) => part.type === "text").map((part) => part.text ?? "").join("");
     };
+    /** All assistant text since the given message index, in order: recovers a plan split across messages by an output limit. */
+    const assistantTextSince = (from: number): string => {
+      const messages = (agent.session.state?.messages ?? []) as Array<{ role: string; content?: string | Array<{ type: string; text?: string }> }>;
+      return messages.slice(from).filter((message) => message.role === "assistant").map((message) => {
+        if (!message.content) return "";
+        return typeof message.content === "string" ? message.content : message.content.filter((part) => part.type === "text").map((part) => part.text ?? "").join("");
+      }).join("");
+    };
+    const messageCount = (): number => (agent.session.state?.messages ?? []).length;
+    /** Last message first, then the trailing assistant messages joined (split output). */
+    const pickParsable = (since: number): { text?: string; error: string } => {
+      const last = lastAssistantText();
+      const lastTry = tryParsePlan(last);
+      if (lastTry.ok) return { text: last, error: "" };
+      const messages = (agent.session.state?.messages ?? []) as Array<{ role: string }>;
+      let tailStart = messages.length;
+      while (tailStart > since && messages[tailStart - 1]?.role === "assistant") tailStart -= 1;
+      const joined = assistantTextSince(tailStart);
+      const joinedTry = tryParsePlan(joined);
+      if (joinedTry.ok) return { text: joined, error: "" };
+      return { error: lastTry.error };
+    };
+
+    const promptStart = messageCount();
     await enginePromptWithFallback(agent.session, input.userMessage, { signal: input.signal });
-    let text = lastAssistantText();
-    if (!extractJsonCandidate(text)) {
-      await enginePromptWithFallback(agent.session, "Return the final JSON object now, with no other text.", { signal: input.signal });
-      text = lastAssistantText();
-    }
-    return text;
+    let picked = pickParsable(promptStart);
+    if (picked.text) return picked.text;
+
+    const correctionStart = messageCount();
+    await enginePromptWithFallback(
+      agent.session,
+      `Your final answer could not be used: ${picked.error}. Reply with ONLY the complete, corrected JSON object (no prose, no code fence).`,
+      { signal: input.signal },
+    );
+    picked = pickParsable(correctionStart);
+    if (picked.text) return picked.text;
+
+    await saveRawResponse(options.rootDir, assistantTextSince(promptStart));
+    throw new Error(`${picked.error} (raw response saved to .fusion/project-analysis/last-failed-response.txt)`);
   } finally {
     input.signal.removeEventListener("abort", dispose);
     dispose();

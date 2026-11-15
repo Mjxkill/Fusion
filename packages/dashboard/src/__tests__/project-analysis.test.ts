@@ -95,6 +95,23 @@ describe("project analysis", () => {
     expect(() => parseProjectAnalysisResponse("{\"missions\": []}")).toThrow("no mission");
   });
 
+  /*
+  FNXC:ProjectAnalysis 2026-11-15-11:40:
+  Real failure on videasy: a long plan came back but parsing reported "no mission". A broken outer object must not let a valid nested feature win, and the error must name the JSON problem.
+  */
+  it("does not mistake a valid nested feature for the plan when the outer JSON is broken", () => {
+    const plan = JSON.stringify(firstPlan);
+    const broken = plan.replace('"summary":"Video studio."', '"summary":"Video "studio"."');
+    expect(() => parseProjectAnalysisResponse(`Voici le plan :\n${broken}`)).toThrow(/not valid JSON/);
+    expect(() => parseProjectAnalysisResponse(`Voici le plan :\n${broken}`)).not.toThrow(/^The analysis returned no mission$/);
+  });
+
+  it("repairs a trailing comma in an otherwise complete plan", () => {
+    const withTrailingComma = JSON.stringify(firstPlan).replace(/\]\}\]\}\]\}\]\}$/, "],}]}]}]}");
+    expect(withTrailingComma).not.toBe(JSON.stringify(firstPlan));
+    expect(parseProjectAnalysisResponse(withTrailingComma).missions[0]!.title).toBe("Génération");
+  });
+
   it("creates goals, missions and features with their detected status on a first analysis", async () => {
     const stores = fakeStores();
     const report = await applyProjectAnalysisPlan(firstPlan, stores, new Date("2026-11-15T10:00:00Z"));
