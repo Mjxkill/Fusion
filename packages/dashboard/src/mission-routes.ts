@@ -19,6 +19,7 @@ import {
   createLogger,
   resolvePlanningSettingsModel,
   THINKING_LEVELS,
+  ACTIVE_GOAL_LIMIT,
   MissionResumeConflictError,
   MISSION_BLOCKER_DESCRIPTOR_SCHEMA_VERSION,
   MissionBlockedClearConflictError,
@@ -1102,6 +1103,77 @@ export function createMissionRouter(
         }
       }
     })
+  );
+
+  /*
+  FNXC:ProjectAnalysis 2026-11-15-10:14:
+  "Analyze project": start a read-only analysis of the repository, poll it, cancel it, and apply the reviewed plan (goals, missions, milestones, slices, features with detected status).
+  These literal routes must stay before `/:missionId`.
+  */
+  router.post(
+    "/analysis/start",
+    catchTypedHandler(async (req, res) => {
+      const { modelProvider, modelId } = req.body ?? {};
+      if ((modelProvider !== undefined && typeof modelProvider !== "string") || (modelId !== undefined && typeof modelId !== "string")) {
+        throw badRequest("modelProvider and modelId must be strings");
+      }
+      if (Boolean(modelProvider) !== Boolean(modelId)) {
+        throw badRequest("Both modelProvider and modelId must be provided together, or neither should be provided");
+      }
+      const { store: scopedStore } = await getProjectContext(req);
+      const settings = await scopedStore.getSettings();
+      const effectiveModel = resolvePlanningSettingsModel(settings);
+      const { startProjectAnalysis, readExistingProjectState } = await import("./project-analysis.js");
+      const existing = await readExistingProjectState(scopedStore.getMissionStore() as never, scopedStore.getGoalStore() as never, ACTIVE_GOAL_LIMIT);
+      const job = startProjectAnalysis({
+        rootDir: scopedStore.getRootDir(),
+        store: scopedStore,
+        existing,
+        modelProvider: modelProvider || effectiveModel.provider,
+        modelId: modelId || effectiveModel.modelId,
+        pluginRunner,
+      });
+      res.status(202).json(job);
+    }),
+  );
+
+  router.get(
+    "/analysis/latest",
+    catchTypedHandler(async (req, res) => {
+      const { store: scopedStore } = await getProjectContext(req);
+      const { getLatestProjectAnalysis } = await import("./project-analysis.js");
+      res.json({ job: (await getLatestProjectAnalysis(scopedStore.getRootDir())) ?? null });
+    }),
+  );
+
+  router.post(
+    "/analysis/:analysisId/cancel",
+    catchTypedHandler(async (req, res) => {
+      const { store: scopedStore } = await getProjectContext(req);
+      const { cancelProjectAnalysis } = await import("./project-analysis.js");
+      if (!cancelProjectAnalysis(req.params.analysisId, scopedStore.getRootDir())) throw conflict("Analysis is not running");
+      res.json({ cancelled: true });
+    }),
+  );
+
+  router.post(
+    "/analysis/:analysisId/apply",
+    catchTypedHandler(async (req, res) => {
+      const { store: scopedStore } = await getProjectContext(req);
+      const rootDir = scopedStore.getRootDir();
+      const { getLatestProjectAnalysis, getProjectAnalysisJob, normaliseProjectAnalysisPlan, applyProjectAnalysisPlan, markProjectAnalysisApplied } = await import("./project-analysis.js");
+      const job = getProjectAnalysisJob(req.params.analysisId, rootDir)
+        ?? (await getLatestProjectAnalysis(rootDir).then((latest) => (latest?.id === req.params.analysisId ? latest : undefined)));
+      if (!job) throw notFound("Analysis not found");
+      if (job.status !== "complete") throw conflict(`Analysis is ${job.status}, not ready to apply`);
+      const plan = normaliseProjectAnalysisPlan(req.body?.plan ?? job.plan);
+      const report = await applyProjectAnalysisPlan(plan, {
+        missionStore: scopedStore.getMissionStore() as never,
+        goalStore: scopedStore.getGoalStore() as never,
+      });
+      await markProjectAnalysisApplied(rootDir, job, plan, report);
+      res.json({ report });
+    }),
   );
 
   /**

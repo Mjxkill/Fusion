@@ -1435,3 +1435,25 @@ export type {
   SystemRebuildJobLine,
   SystemRebuildJobSnapshot,
 } from "./system/system-panel.js";
+
+/*
+ * FNXC:ProjectAnalysis 2026-11-15-10:14:
+ * "Analyze project" client, re-exported for `../api` consumers.
+ */
+export {
+  startProjectAnalysis,
+  fetchLatestProjectAnalysis,
+  cancelProjectAnalysis,
+  applyProjectAnalysis,
+} from "./missions/project-analysis.js";
+export type {
+  ProjectAnalysisJob,
+  ProjectAnalysisPlan,
+  ProjectAnalysisApplyReport,
+  AnalysisFeatureStatus,
+  AnalysisMission,
+  AnalysisMilestone,
+  AnalysisSlice,
+  AnalysisFeature,
+  AnalysisGoal,
+} from "./missions/project-analysis.js";

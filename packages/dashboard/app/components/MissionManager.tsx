@@ -29,6 +29,7 @@ import {
   Play,
   Square,
   Sparkles,
+  ScanSearch,
   Zap,
   Activity,
   FileText,
@@ -40,6 +41,7 @@ import { useViewportMode } from "../hooks/useViewportMode";
 import { useNavigationHistoryContext } from "../hooks/useNavigationHistory";
 import { subscribeSse } from "../sse-bus";
 import { MissionInterviewModal } from "./MissionInterviewModal";
+import { ProjectAnalysisModal } from "./ProjectAnalysisModal";
 import { MilestoneSliceInterviewModal } from "./MilestoneSliceInterviewModal";
 import type {
   Mission,
@@ -985,6 +987,8 @@ export function MissionManager({ isOpen, isInline = false, onClose, addToast, pr
   const [showInterviewModal, setShowInterviewModal] = useState(false);
   const [interviewLaunchMode, setInterviewLaunchMode] = useState<"new" | "resume">("new");
   const [interviewModalKey, setInterviewModalKey] = useState(0);
+  /* FNXC:ProjectAnalysis 2026-11-15-10:14: "Analyze project" dialog (detects goals/missions/features of an existing project). */
+  const [showProjectAnalysis, setShowProjectAnalysis] = useState(false);
 
   // Pending mission interview sessions (for resume prompt after page reload)
   const [_pendingInterviewSessions, setPendingInterviewSessions] = useState<AiSessionSummary[]>([]);
@@ -5313,6 +5317,10 @@ export function MissionManager({ isOpen, isInline = false, onClose, addToast, pr
             <a className="mission-list__manual-create-link" href="#mission-create" onClick={openDirectMissionCreate}>
               {t("missions.createButton", "Create")}
             </a>
+            <button className="btn btn-sm" type="button" data-testid="mission-analyze-project" onClick={() => setShowProjectAnalysis(true)}>
+              <ScanSearch size={14} />
+              {t("projectAnalysis.button", "Analyze project")}
+            </button>
           </div>
         )}
 
@@ -5719,6 +5727,10 @@ export function MissionManager({ isOpen, isInline = false, onClose, addToast, pr
                     <a className="mission-list__manual-create-link" href="#mission-create" onClick={openDirectMissionCreate}>
                       {t("missions.createButton", "Create")}
                     </a>
+                    <button className="btn" type="button" data-testid="mission-analyze-project-desktop" onClick={() => setShowProjectAnalysis(true)} title={t("projectAnalysis.button", "Analyze project")}>
+                      <ScanSearch size={14} />
+                      {t("projectAnalysis.button", "Analyze project")}
+                    </button>
                   </>
                 )}
               </div>
@@ -5788,6 +5800,17 @@ export function MissionManager({ isOpen, isInline = false, onClose, addToast, pr
     />
   );
 
+  const projectAnalysisModal = showProjectAnalysis ? (
+    <ProjectAnalysisModal
+      projectId={projectId}
+      onClose={() => setShowProjectAnalysis(false)}
+      onApplied={() => {
+        loadMissions();
+        addToast(t("projectAnalysis.appliedToast", "Project analysis applied"), "success");
+      }}
+    />
+  ) : null;
+
   const milestoneSliceInterviewModal = interviewTarget ? (
     <MilestoneSliceInterviewModal
       isOpen={true}
@@ -5810,6 +5833,7 @@ export function MissionManager({ isOpen, isInline = false, onClose, addToast, pr
       <>
         {manager}
         {interviewModal}
+        {projectAnalysisModal}
         {milestoneSliceInterviewModal}
       </>
     );
@@ -5827,6 +5851,7 @@ export function MissionManager({ isOpen, isInline = false, onClose, addToast, pr
         {manager}
       </div>
       {interviewModal}
+      {projectAnalysisModal}
       {milestoneSliceInterviewModal}
     </>
   );

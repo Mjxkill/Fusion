@@ -48,6 +48,7 @@ vi.mock("lucide-react", () => ({
   Play: () => <span>Play</span>,
   Square: () => <span>Square</span>,
   Sparkles: () => <span>Sparkles</span>,
+  ScanSearch: () => <span>ScanSearch</span>,
   Zap: () => <span>Zap</span>,
   Activity: () => <span>Activity</span>,
   FileText: () => <span>FileText</span>,

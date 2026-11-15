@@ -3294,6 +3294,37 @@
       "truncated": ""
     }
   },
+  "projectAnalysis": {
+    "applied": "Appliquée : {{missions}} missions, {{milestones}} jalons, {{slices}} tranches et {{features}} fonctionnalités créés ; {{updated}} fonctionnalités mises à jour ; {{goals}} objectifs créés.",
+    "appliedToast": "Analyse du projet appliquée",
+    "apply": "Appliquer",
+    "applying": "Application…",
+    "button": "Analyser le projet",
+    "cancel": "Arrêter l'analyse",
+    "cancelled": "La dernière analyse a été arrêtée.",
+    "close": "Fermer",
+    "counts": "{{missions}} missions, {{features}} fonctionnalités : {{done}} faites, {{inProgress}} en cours, {{todo}} à faire, {{blocked}} bloquées",
+    "existing": "existant",
+    "failed": "La dernière analyse a échoué : {{error}}",
+    "goals": "Objectifs",
+    "goalsSkipped": "Objectifs non créés (limite d'objectifs actifs atteinte) : {{titles}}",
+    "intro": "Un agent lit le dépôt (docs, code, tests, tâches du tableau) sans rien modifier, puis propose les objectifs, missions et fonctionnalités avec leur état détecté. Vous relisez la proposition avant toute création. Les missions existantes sont mises à jour, pas dupliquées.",
+    "lastApplied": "La dernière analyse a été appliquée le {{date}}.",
+    "linkedKept": "{{count}} fonctionnalités liées à une tâche gardent l'état donné par leur tâche.",
+    "loading": "Chargement…",
+    "model": "Modèle d'analyse",
+    "restart": "Relancer l'analyse",
+    "running": "Analyse en cours avec {{model}} depuis {{time}}. Vous pouvez fermer cette fenêtre : elle continue.",
+    "start": "Lancer l'analyse",
+    "status": "État",
+    "statuses": {
+      "blocked": "Bloquée",
+      "done": "Faite",
+      "in-progress": "En cours",
+      "todo": "À faire"
+    },
+    "title": "Analyser le projet"
+  },
   "proposedTasks": {
     "dismiss": "Ignorer",
     "dismissed": "Ignorée",

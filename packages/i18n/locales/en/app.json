@@ -3307,6 +3307,37 @@
       "truncated": "Showing the first 20 pages. Refresh to see the latest recommendations."
     }
   },
+  "projectAnalysis": {
+    "applied": "Applied: {{missions}} missions, {{milestones}} milestones, {{slices}} slices and {{features}} features created; {{updated}} features updated; {{goals}} goals created.",
+    "appliedToast": "Project analysis applied",
+    "apply": "Apply",
+    "applying": "Applying…",
+    "button": "Analyze project",
+    "cancel": "Cancel analysis",
+    "cancelled": "The last analysis was cancelled.",
+    "close": "Close",
+    "counts": "{{missions}} missions, {{features}} features: {{done}} done, {{inProgress}} in progress, {{todo}} to do, {{blocked}} blocked",
+    "existing": "existing",
+    "failed": "The last analysis failed: {{error}}",
+    "goals": "Goals",
+    "goalsSkipped": "Goals not created (active goal limit reached): {{titles}}",
+    "intro": "An agent reads the repository (docs, code, tests, board tasks) without changing anything, then proposes goals, missions and features with their detected status. You review the proposal before anything is created. Existing missions are updated, not duplicated.",
+    "lastApplied": "The last analysis was applied on {{date}}.",
+    "linkedKept": "{{count}} features linked to a task kept the status set by their task.",
+    "loading": "Loading…",
+    "model": "Analysis model",
+    "restart": "Analyze again",
+    "running": "Analysis in progress with {{model}} since {{time}}. You can close this window: it keeps running.",
+    "start": "Start analysis",
+    "status": "Status",
+    "statuses": {
+      "blocked": "Blocked",
+      "done": "Done",
+      "in-progress": "In progress",
+      "todo": "To do"
+    },
+    "title": "Analyze project"
+  },
   "proposedTasks": {
     "dismiss": "Dismiss",
     "dismissed": "Dismissed",

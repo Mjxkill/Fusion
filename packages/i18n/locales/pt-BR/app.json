@@ -3304,6 +3304,37 @@
       "truncated": ""
     }
   },
+  "projectAnalysis": {
+    "applied": "",
+    "appliedToast": "",
+    "apply": "",
+    "applying": "",
+    "button": "",
+    "cancel": "",
+    "cancelled": "",
+    "close": "",
+    "counts": "",
+    "existing": "",
+    "failed": "",
+    "goals": "",
+    "goalsSkipped": "",
+    "intro": "",
+    "lastApplied": "",
+    "linkedKept": "",
+    "loading": "",
+    "model": "",
+    "restart": "",
+    "running": "",
+    "start": "",
+    "status": "",
+    "statuses": {
+      "blocked": "",
+      "done": "",
+      "in-progress": "",
+      "todo": ""
+    },
+    "title": ""
+  },
   "proposedTasks": {
     "dismiss": "",
     "dismissed": "",

@@ -1,0 +1,91 @@
+/*
+FNXC:ProjectAnalysis 2026-11-15-10:14:
+The analysis review lists a whole project tree, so the dialog is wider than the default modal and the body scrolls.
+Rows reuse task-card text classes; only indentation and layout are specific here.
+*/
+.project-analysis-modal {
+  width: min(960px, calc(100vw - var(--space-lg) * 2));
+  max-height: 88vh;
+}
+
+.project-analysis-modal__body {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.project-analysis-modal__start {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.project-analysis-modal__progress {
+  max-height: 40vh;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm);
+}
+
+.project-analysis-modal__counts {
+  color: var(--text-muted);
+}
+
+.project-analysis-modal__mission {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm);
+}
+
+.project-analysis-modal__mission > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  cursor: pointer;
+}
+
+.project-analysis-modal__milestone {
+  margin-top: var(--space-sm);
+  padding-left: var(--space-md);
+}
+
+.project-analysis-modal__milestone-title {
+  font-weight: 600;
+}
+
+.project-analysis-modal__slice {
+  padding-left: var(--space-md);
+}
+
+.project-analysis-modal__feature {
+  padding-left: var(--space-md);
+  margin-bottom: var(--space-xs);
+}
+
+.project-analysis-modal__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.project-analysis-modal__status {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.project-analysis-modal__evidence {
+  margin-top: 0;
+  padding-left: calc(var(--space-md) + var(--space-sm));
+}
+
+.project-analysis-modal__error {
+  color: var(--danger);
+}
