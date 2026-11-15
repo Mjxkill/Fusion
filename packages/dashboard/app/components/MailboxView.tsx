@@ -271,6 +271,14 @@ export function MailboxView({
   */
   const [inboxUnreadOnly, setInboxUnreadOnly] = useState(false);
   const inboxLimitRef = useRef(MAILBOX_PAGE_SIZE);
+  /*
+  FNXC:MailboxPagination 2026-11-15-11:10:
+  Refreshes overlap (SSE wakes, filter toggles, Load more). Each list numbers its requests and only the latest may write, so an older unfiltered or smaller response can never overwrite newer state.
+  `inboxShownUnreadOnlyRef` is the filter the displayed inbox was fetched with: when a filter change fails, the toggle reverts to it and the operator is told, instead of showing unfiltered mail under a pressed "Unread only".
+  */
+  const inboxRequestRef = useRef(0);
+  const outboxRequestRef = useRef(0);
+  const inboxShownUnreadOnlyRef = useRef(false);
   const outboxLimitRef = useRef(MAILBOX_PAGE_SIZE);
   const [inboxHasMore, setInboxHasMore] = useState(false);
   const [outboxHasMore, setOutboxHasMore] = useState(false);
@@ -479,21 +487,30 @@ export function MailboxView({
   // ── Data fetching ─────────────────────────────────────────────────────
 
   const loadInbox = useCallback(async () => {
+    const request = ++inboxRequestRef.current;
     captureMailboxScroll();
     setIsLoading(true);
     try {
       const limit = inboxLimitRef.current;
       const data = await fetchInbox({ limit, ...(inboxUnreadOnly ? { unreadOnly: true } : {}) }, projectId);
+      if (request !== inboxRequestRef.current) return;
+      inboxShownUnreadOnlyRef.current = inboxUnreadOnly;
       setInbox(data);
       setInboxHasMore(data.messages.length >= limit);
       setUnreadCount(data.unreadCount);
       onUnreadCountChange?.(data.unreadCount);
     } catch {
-      // Silently fail — empty state will show
+      if (request !== inboxRequestRef.current) return;
+      if (inboxUnreadOnly !== inboxShownUnreadOnlyRef.current) {
+        inboxLimitRef.current = MAILBOX_PAGE_SIZE;
+        setInboxUnreadOnly(inboxShownUnreadOnlyRef.current);
+        addToast?.(t("mailbox.filterFailed", "Could not apply the filter. Showing the previous list."), "error");
+      }
+      // Otherwise keep the current list; the empty state shows when nothing was loaded yet.
     } finally {
-      setIsLoading(false);
+      if (request === inboxRequestRef.current) setIsLoading(false);
     }
-  }, [projectId, onUnreadCountChange, captureMailboxScroll, inboxUnreadOnly]);
+  }, [projectId, onUnreadCountChange, captureMailboxScroll, inboxUnreadOnly, addToast, t]);
 
   const loadArchivedInbox = useCallback(async () => {
     captureMailboxScroll();
@@ -518,17 +535,19 @@ export function MailboxView({
   }, [projectId, captureMailboxScroll]);
 
   const loadOutbox = useCallback(async () => {
+    const request = ++outboxRequestRef.current;
     captureMailboxScroll();
     setIsLoading(true);
     try {
       const limit = outboxLimitRef.current;
       const data = await fetchOutbox({ limit }, projectId);
+      if (request !== outboxRequestRef.current) return;
       setOutbox(data);
       setOutboxHasMore(data.messages.length >= limit);
     } catch {
       // Silently fail
     } finally {
-      setIsLoading(false);
+      if (request === outboxRequestRef.current) setIsLoading(false);
     }
   }, [projectId, captureMailboxScroll]);
 

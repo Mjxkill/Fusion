@@ -3607,6 +3607,7 @@
     "reportsApprovals": "",
     "loadMore": "Charger plus",
     "unreadOnly": "Non lus uniquement",
+    "filterFailed": "Impossible d'appliquer le filtre. La liste précédente est affichée.",
     "noUnreadMessages": "Aucun message non lu",
     "restore": "",
     "retryCreatingTask": "",

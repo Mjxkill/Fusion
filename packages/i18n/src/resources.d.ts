@@ -3586,6 +3586,7 @@ export default interface Resources {
       "deleteButton": "Delete",
       "deleteFailed": "Failed to delete message",
       "deny": "Deny",
+      "filterFailed": "Could not apply the filter. Showing the previous list.",
       "from": "From",
       "fromLabel": "From:",
       "fromPrefix": "From: {{participant}}",

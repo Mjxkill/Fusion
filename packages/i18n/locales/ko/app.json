@@ -3606,6 +3606,7 @@
     "reportsApprovals": "",
     "loadMore": "",
     "unreadOnly": "",
+    "filterFailed": "",
     "noUnreadMessages": "",
     "restore": "",
     "retryCreatingTask": "",

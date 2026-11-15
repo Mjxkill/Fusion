@@ -2468,6 +2468,56 @@ describe("MailboxView", () => {
       });
     });
 
+    /*
+    FNXC:MailboxPagination 2026-11-15-11:10:
+    Overlapping refreshes: only the latest request may write; a failed filter change reverts the toggle and says so.
+    */
+    it("ignores an older unfiltered response that resolves after the unread filter was applied", async () => {
+      mockFetchInbox.mockReset();
+      let releaseStale!: (value: ReturnType<typeof makeInboxResponse>) => void;
+      mockFetchInbox
+        .mockResolvedValueOnce(makeInboxResponse([mockMessage, mockReadMessage], 1))
+        .mockImplementationOnce(() => new Promise((resolve) => { releaseStale = resolve; }))
+        .mockResolvedValueOnce(makeInboxResponse([mockMessage], 1));
+
+      render(<MailboxView {...defaultProps} />);
+      await screen.findByTestId(`mailbox-item-${mockReadMessage.id}`);
+
+      // A refresh is in flight when the operator enables "Unread only".
+      await act(async () => {
+        fireEvent.click(screen.getByTitle("Refresh"));
+      });
+      await act(async () => {
+        fireEvent.click(screen.getByTestId("mailbox-unread-filter"));
+      });
+      await waitFor(() => expect(screen.queryByTestId(`mailbox-item-${mockReadMessage.id}`)).toBeNull());
+
+      await act(async () => {
+        releaseStale(makeInboxResponse([mockMessage, mockReadMessage], 1));
+      });
+      expect(screen.queryByTestId(`mailbox-item-${mockReadMessage.id}`)).toBeNull();
+      expect(screen.getByTestId("mailbox-unread-filter").getAttribute("aria-pressed")).toBe("true");
+    });
+
+    it("reverts the unread filter and reports it when the filtered request fails", async () => {
+      mockFetchInbox.mockReset();
+      mockFetchInbox
+        .mockResolvedValueOnce(makeInboxResponse([mockMessage, mockReadMessage], 1))
+        .mockRejectedValueOnce(new Error("network"))
+        .mockResolvedValue(makeInboxResponse([mockMessage, mockReadMessage], 1));
+      const addToast = vi.fn();
+
+      render(<MailboxView {...defaultProps} addToast={addToast} />);
+      await screen.findByTestId(`mailbox-item-${mockReadMessage.id}`);
+      await act(async () => {
+        fireEvent.click(screen.getByTestId("mailbox-unread-filter"));
+      });
+
+      await waitFor(() => expect(screen.getByTestId("mailbox-unread-filter").getAttribute("aria-pressed")).toBe("false"));
+      expect(addToast).toHaveBeenCalledWith(expect.stringContaining("Could not apply the filter"), "error");
+      expect(screen.getByTestId(`mailbox-item-${mockReadMessage.id}`)).toBeDefined();
+    });
+
     it("offers Load more on a full sent page", async () => {
       serveMailbox([], makePage("out", 60, mockOutboxMessage));
 
