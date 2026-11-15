@@ -999,13 +999,7 @@ export class ProjectEngine {
     lock held, and every later start failed with "blocked by lockfile". Use the
     constructor config id (store is still read later inside refresh once started).
     */
-    /*
-    FNXC:ConcurrencyAdmission 2026-11-15-11:01:
-    The coordinator groups providers by admission key, and every other lane (triage, scheduler, this engine's own merge admitNext) keys by the project root directory.
-    Registering the merge provider under `config.projectId` put it in a group no admission pass ever read, so queued merges were invisible and FN-8705's review-first priority never applied.
-    Key it by the working directory, the same root the other lanes use.
-    */
-    const projectId = this.config.workingDirectory || this.config.projectId;
+    const projectId = this.config.projectId || this.config.workingDirectory;
     /*
     FNXC:ConcurrencyAdmission 2026-08-03-16:20:
     FN-8453/#2359 requires the actual durable merge queue to refresh on every
@@ -1017,20 +1011,9 @@ export class ProjectEngine {
     this.unregisterMergeAdmissionProvider = projectAdmissionCoordinator.registerProvider(`merge:${projectId}`, {
       projectId,
       refresh: async () => {
-        /*
-        FNXC:ConcurrencyAdmission 2026-11-15-11:01:
-        While the single-flight pump is running it holds its own one-shot admission for the dequeued merge; advertising the other queued merges here would let an older one win that pass and drop the pump's current merge.
-        The provider only speaks for idle merge work (queued or capacity-deferred) when the pump is not running.
-        */
-        if (this.shuttingDown || !this.started || this.mergeRunning || this.coordinatorAdmittedMergeTaskIds.size > 0) return [];
+        if (this.shuttingDown || !this.started || this.coordinatorAdmittedMergeTaskIds.size > 0) return [];
         const store = this.runtime.getTaskStore();
-        /*
-        FNXC:ConcurrencyAdmission 2026-11-15-11:01:
-        A merge deferred for capacity leaves `mergeQueue` until its retry timer, so the coordinator used to see no review candidate when a slot freed and handed it to planning.
-        With a steady planning backlog the merge then found capacity full at every timer tick and starved indefinitely (observed: a merge waited 45 min behind 52 planning cards, then timed out).
-        Advertise capacity-deferred merges as review candidates too; selecting one wakes it immediately (`wakeCapacityDeferredMerge`) into the reserved slot.
-        */
-        const queuedTaskIds = [...new Set([...this.mergeQueue, ...this.capacityDeferredMergeTaskIds])];
+        const queuedTaskIds = [...this.mergeQueue];
         const tasks = await Promise.all(queuedTaskIds.map(async (taskId) => await store.getTask(taskId).catch(() => null)));
         /*
         FNXC:WorkflowLifecycleColumns 2026-08-01-19:10 (fleet: project-engine.ts merge lane):
@@ -1060,18 +1043,7 @@ export class ProjectEngine {
             start: async () => {
               // Do not run merge work in the coordinator; hand the exact queued
               // id back to the single-flight pump, which will consume this marker.
-              if (this.shuttingDown) return false;
-              if (!this.mergeQueue.includes(task.id)) {
-                if (!this.capacityDeferredMergeTaskIds.has(task.id)) return false;
-                // Mark before waking: the wake enqueues and starts the pump, which must take the
-                // coordinator-reserved path instead of re-running a one-shot admission against this slot.
-                this.coordinatorAdmittedMergeTaskIds.add(task.id);
-                if (!this.wakeCapacityDeferredMerge(task.id)) {
-                  this.coordinatorAdmittedMergeTaskIds.delete(task.id);
-                  return false;
-                }
-                return;
-              }
+              if (!this.mergeQueue.includes(task.id) || this.shuttingDown) return false;
               this.coordinatorAdmittedMergeTaskIds.add(task.id);
               void this.drainMergeQueue().catch((error: unknown) => {
                 runtimeLog.error(`Coordinator-admitted merge drain failed: ${error instanceof Error ? error.message : String(error)}`);
@@ -3512,31 +3484,6 @@ export class ProjectEngine {
     this.prMergeRetryTimers.set(taskId, timer);
   }
 
-  /**
-   * Moves a capacity-deferred merge back into the runnable queue now (retry timer fired, or the
-   * admission coordinator selected it for a freed slot). Returns false when it could not be re-queued;
-   * its awaiting callers are then rejected exactly as the timer path always did.
-   */
-  private wakeCapacityDeferredMerge(taskId: string): boolean {
-    const deferred = this.capacityDeferredMerges.get(taskId);
-    if (!deferred) return false;
-    clearTimeout(deferred.timer);
-    this.capacityDeferredMerges.delete(taskId);
-    this.capacityDeferredMergeTaskIds.delete(taskId);
-    if (this.shuttingDown || deferred.generation !== this.startupGeneration) {
-      for (const resolver of deferred.resolvers) resolver.reject(new Error("Engine shutting down"));
-      return false;
-    }
-    for (const resolver of deferred.resolvers) this.addMergeResolver(taskId, resolver);
-    if (!this.internalEnqueueMerge(taskId)) {
-      for (const resolver of this.takeMergeResolvers(taskId)) {
-        resolver.reject(new Error(`Deferred merge enqueue rejected for ${taskId}`));
-      }
-      return false;
-    }
-    return true;
-  }
-
   private internalEnqueueMerge(taskId: string): boolean {
     if (this.shuttingDown || !this.started) return false;
     if (this.mergeRetryResetTaskIds.has(taskId)) {
@@ -5021,7 +4968,18 @@ export class ProjectEngine {
             const timer = setTimeout(() => {
               const deferred = this.capacityDeferredMerges.get(taskId);
               if (!deferred || deferred.timer !== timer) return;
-              this.wakeCapacityDeferredMerge(taskId);
+              this.capacityDeferredMerges.delete(taskId);
+              this.capacityDeferredMergeTaskIds.delete(taskId);
+              if (this.shuttingDown || deferred.generation !== this.startupGeneration) {
+                for (const resolver of deferred.resolvers) resolver.reject(new Error("Engine shutting down"));
+                return;
+              }
+              for (const resolver of deferred.resolvers) this.addMergeResolver(taskId, resolver);
+              if (!this.internalEnqueueMerge(taskId)) {
+                for (const resolver of this.takeMergeResolvers(taskId)) {
+                  resolver.reject(new Error(`Deferred merge enqueue rejected for ${taskId}`));
+                }
+              }
             }, retryMs);
             timer.unref?.();
             this.capacityDeferredMerges.set(taskId, {
