@@ -84,11 +84,12 @@ export interface TaskRecommendationsResponse {
 
 export function fetchTaskRecommendations(
   projectId?: string,
-  options?: { limit?: number; offset?: number },
+  options?: { limit?: number; offset?: number; pendingOnly?: boolean },
 ): Promise<TaskRecommendationsResponse> {
   const query = new URLSearchParams();
   if (options?.limit !== undefined) query.set("limit", String(options.limit));
   if (options?.offset !== undefined) query.set("offset", String(options.offset));
+  if (options?.pendingOnly) query.set("pending", "true");
   const suffix = query.size > 0 ? `?${query.toString()}` : "";
   return api<TaskRecommendationsResponse>(withProjectId(`/tasks/recommendations${suffix}`, projectId));
 }
@@ -271,6 +272,22 @@ export function createTaskFromRecommendation(
   return api<CreateTaskFromRecommendationResponse>(withProjectId(`/tasks/${encodeURIComponent(taskId)}/recommendations/${encodeURIComponent(recommendationId)}/create`, projectId), {
     method: "POST",
     body: JSON.stringify({}),
+  });
+}
+
+/**
+ * FNXC:ProposedTasks 2026-11-15-09:18:
+ * Dismiss (or, with `dismissed: false`, restore) a proposal so it leaves the pending proposal views.
+ */
+export function dismissTaskRecommendation(
+  taskId: string,
+  recommendationId: string,
+  projectId?: string,
+  dismissed = true,
+): Promise<{ parent: Task }> {
+  return api<{ parent: Task }>(withProjectId(`/tasks/${encodeURIComponent(taskId)}/recommendations/${encodeURIComponent(recommendationId)}/dismiss`, projectId), {
+    method: "POST",
+    body: JSON.stringify({ dismissed }),
   });
 }
 

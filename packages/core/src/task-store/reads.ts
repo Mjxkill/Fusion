@@ -992,7 +992,7 @@ export async function getTaskVerificationRequestAsyncImpl(store: TaskStore, task
  */
 export async function listTaskRecommendationsImpl(
   store: TaskStore,
-  options?: { completeColumns?: ReadonlySet<string>; limit?: number; offset?: number },
+  options?: { completeColumns?: ReadonlySet<string>; limit?: number; offset?: number; pendingOnly?: boolean },
 ): Promise<TaskRecommendationListPage> {
   const layer = store.asyncLayer!;
   const completeColumns = options?.completeColumns ?? await resolveProjectColumnsForRoles(store, ["complete"]);
@@ -1032,14 +1032,24 @@ export async function listTaskRecommendationsImpl(
       .filter((entry) => Array.isArray(entry.recommendations) && entry.recommendations.length > 0)
       .map((entry) => ({ id: entry.id, title: entry.title, column: "archived", updatedAt: entry.updatedAt, recommendations: entry.recommendations! })),
   ].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || b.id.localeCompare(a.id));
-  const page = rows.slice(offset, offset + limit);
+  /*
+  FNXC:ProposedTasks 2026-11-15-09:18:
+  The board's Proposed column and the Insights "To triage" view list only proposals still awaiting a decision: not turned into a task and not dismissed.
+  Filter before paging so source rows whose proposals are all handled never consume a page.
+  */
+  const visibleRows = options?.pendingOnly
+    ? rows
+      .map((row) => ({ ...row, recommendations: row.recommendations.filter((item) => !item.createdTaskId && !item.dismissedAt) }))
+      .filter((row) => row.recommendations.length > 0)
+    : rows;
+  const page = visibleRows.slice(offset, offset + limit);
   const items: TaskRecommendationListItem[] = [];
   for (const row of page) {
     for (const recommendation of row.recommendations) {
       items.push({ taskId: row.id, taskTitle: row.title, taskColumn: row.column as TaskRecommendationListItem["taskColumn"], updatedAt: row.updatedAt, recommendation: recommendation as TaskRecommendation });
     }
   }
-  const totalRowCount = rows.length;
+  const totalRowCount = visibleRows.length;
   const returnedRowCount = page.length;
   return { items, rowOffset: offset, rowLimit: limit, returnedRowCount, totalRowCount, hasMore: offset + returnedRowCount < totalRowCount };
 }

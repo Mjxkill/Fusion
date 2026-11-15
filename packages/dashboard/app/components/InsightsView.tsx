@@ -86,7 +86,12 @@ export function InsightsView({ projectId, addToast, onClose, onCreateTask, model
     archivedCount = 0,
     showArchived = false,
   } = useInsights(projectId);
-  const taskRecommendations = useTaskRecommendations(projectId);
+  /*
+  FNXC:ProposedTasks 2026-11-15-09:18:
+  The Task Recommendations section is the full list of proposed tasks. It opens on proposals still to triage; "All" also shows created and dismissed ones, and a dismissed proposal can be restored.
+  */
+  const [recommendationsPendingOnly, setRecommendationsPendingOnly] = useState(true);
+  const taskRecommendations = useTaskRecommendations(projectId, { pendingOnly: recommendationsPendingOnly });
 
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [statusType, setStatusType] = useState<"success" | "error" | "info">("info");
@@ -381,13 +386,17 @@ export function InsightsView({ projectId, addToast, onClose, onCreateTask, model
   const renderRecommendations = () => (
     <section className="insights-section insights-recommendations" data-testid="insights-section-recommendations">
       <div className="insights-section-header"><div className="insights-section-title"><Lightbulb size={18} className="insights-section-icon" /><h3>{t("insights.recommendations.title", "Task Recommendations")}</h3><span className="insights-section-count">{taskRecommendations.items.length}</span></div></div>
+      <div className="insights-recommendations__filter" role="group" aria-label={t("proposedTasks.filter", "Proposal filter")}>
+        <button type="button" className="btn btn-sm btn-secondary" aria-pressed={recommendationsPendingOnly} data-testid="task-recommendations-filter-pending" onClick={() => setRecommendationsPendingOnly(true)}>{t("proposedTasks.toTriage", "To triage")}</button>
+        <button type="button" className="btn btn-sm btn-secondary" aria-pressed={!recommendationsPendingOnly} data-testid="task-recommendations-filter-all" onClick={() => setRecommendationsPendingOnly(false)}>{t("mailbox.all", "All")}</button>
+      </div>
       <p className="insights-recommendations__count">{t("insights.recommendations.count", "Showing {{shown}} of {{total}} source tasks", { shown: taskRecommendations.items.length, total: taskRecommendations.totalRowCount })}</p>
       <ul className="insights-list">
         {taskRecommendations.items.map((item) => {
           const key = `${item.taskId}:${item.recommendation.id}`;
           const action = taskRecommendations.createStates.get(key);
           const createdTaskId = item.recommendation.createdTaskId;
-          return <li className="insight-item insights-recommendations__item" key={key} data-testid={`task-recommendation-${key}`}><div className="insight-item-header"><h4 className="insight-item-title">{item.recommendation.title}</h4><span className="insights-category-count">{item.recommendation.category}</span></div><p>{item.recommendation.description}</p><p className="insights-recommendations__source">{t("insights.recommendations.source", "Source: {{task}}", { task: item.taskTitle ? `${item.taskId} — ${item.taskTitle}` : item.taskId })}</p>{createdTaskId ? <span role="status">{t("taskDetail.recommendations.created", "Created {{taskId}}", { taskId: createdTaskId })}</span> : <div><button className="btn btn-primary" type="button" disabled={action?.running} onClick={() => void taskRecommendations.createTask(item.taskId, item.recommendation.id)}>{action?.running ? t("taskDetail.recommendations.creating", "Creating…") : action?.error ? t("taskDetail.recommendations.retry", "Retry creating task") : t("taskDetail.recommendations.create", "Create task")}</button>{action?.error && <span role="status">{t("taskDetail.recommendations.error", "Could not create task. Try again.")}</span>}</div>}</li>;
+          return <li className="insight-item insights-recommendations__item" key={key} data-testid={`task-recommendation-${key}`}><div className="insight-item-header"><h4 className="insight-item-title">{item.recommendation.title}</h4><span className="insights-category-count">{item.recommendation.category}</span></div><p>{item.recommendation.description}</p><p className="insights-recommendations__source">{t("insights.recommendations.source", "Source: {{task}}", { task: item.taskTitle ? `${item.taskId} — ${item.taskTitle}` : item.taskId })}</p>{createdTaskId ? <span role="status">{t("taskDetail.recommendations.created", "Created {{taskId}}", { taskId: createdTaskId })}</span> : item.recommendation.dismissedAt ? <div><span role="status">{t("proposedTasks.dismissed", "Dismissed")}</span> <button className="btn" type="button" disabled={action?.running} data-testid={`task-recommendation-restore-${key}`} onClick={() => void taskRecommendations.dismiss(item.taskId, item.recommendation.id, false)}>{t("proposedTasks.restore", "Restore")}</button></div> : <div><button className="btn btn-primary" type="button" disabled={action?.running} onClick={() => void taskRecommendations.createTask(item.taskId, item.recommendation.id)}>{action?.running ? t("taskDetail.recommendations.creating", "Creating…") : action?.error ? t("taskDetail.recommendations.retry", "Retry creating task") : t("taskDetail.recommendations.create", "Create task")}</button> <button className="btn" type="button" disabled={action?.running} data-testid={`task-recommendation-dismiss-${key}`} onClick={() => void taskRecommendations.dismiss(item.taskId, item.recommendation.id)}>{t("proposedTasks.dismiss", "Dismiss")}</button>{action?.error && <span role="status">{t("taskDetail.recommendations.error", "Could not create task. Try again.")}</span>}</div>}</li>;
         })}
       </ul>
       {taskRecommendations.truncated ? <p role="status">{t("insights.recommendations.truncated", "Showing the first 20 pages. Refresh to see the latest recommendations.")}</p> : taskRecommendations.hasMore ? <button className="btn" type="button" disabled={taskRecommendations.loadingMore} onClick={() => void taskRecommendations.loadMore()}>{taskRecommendations.loadingMore ? t("insights.recommendations.loadingMore", "Loading more…") : t("insights.recommendations.loadMore", "Load more")}</button> : null}

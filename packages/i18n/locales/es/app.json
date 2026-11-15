@@ -3294,6 +3294,18 @@
       "truncated": ""
     }
   },
+  "proposedTasks": {
+    "dismiss": "",
+    "dismissed": "",
+    "empty": "",
+    "filter": "",
+    "loadFailed": "",
+    "loading": "",
+    "restore": "",
+    "source": "",
+    "title": "",
+    "toTriage": ""
+  },
   "interview": {
     "addContextDirection": "Agregue contexto o dirección adicional...",
     "additionalComments": "Comentarios adicionales (opcional)",

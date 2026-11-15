@@ -3294,6 +3294,18 @@
       "truncated": ""
     }
   },
+  "proposedTasks": {
+    "dismiss": "",
+    "dismissed": "",
+    "empty": "",
+    "filter": "",
+    "loadFailed": "",
+    "loading": "",
+    "restore": "",
+    "source": "",
+    "title": "",
+    "toTriage": ""
+  },
   "interview": {
     "addContextDirection": "添加任何額外的上下文或方向...",
     "additionalComments": "附加註釋（可選）",

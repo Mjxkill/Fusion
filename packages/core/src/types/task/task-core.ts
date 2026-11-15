@@ -751,6 +751,12 @@ export interface TaskRecommendation {
   description: string;
   category: TaskRecommendationCategory;
   createdTaskId?: string;
+  /**
+   * FNXC:ProposedTasks 2026-11-15-09:18:
+   * Set when the operator dismisses a proposal from the board's Proposed column or the Insights list.
+   * A dismissed proposal leaves the pending views but stays on its source task; clearing it restores the proposal.
+   */
+  dismissedAt?: string;
 }
 
 /** A recommendation paired with the completed task that produced it. */

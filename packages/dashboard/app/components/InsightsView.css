@@ -698,3 +698,13 @@ so desktop and horizontal mobile category rails expose the same reachable Load m
     min-inline-size: 0;
   }
 }
+
+/*
+FNXC:ProposedTasks 2026-11-15-09:18:
+"To triage" / "All" switch above the proposed-task list.
+*/
+.insights-recommendations__filter {
+  display: flex;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-sm);
+}

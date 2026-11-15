@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { TaskRecommendationListItem } from "@fusion/core";
-import { createTaskFromRecommendation, fetchTaskRecommendations } from "../api";
+import { createTaskFromRecommendation, dismissTaskRecommendation, fetchTaskRecommendations } from "../api";
 
 export const MAX_RECOMMENDATION_PAGES = 20;
 const PAGE_SIZE = 50;
@@ -13,7 +13,20 @@ export interface RecommendationActionState { running: boolean; error: string | n
  * count; concurrent completions may shift this advisory list, but linking a recommendation preserves
  * its parent row and never invalidates this surface's own offset.
  */
-export function useTaskRecommendations(projectId?: string) {
+/**
+ * FNXC:ProposedTasks 2026-11-15-09:18:
+ * `pendingOnly` lists only proposals awaiting a decision (board Proposed column, Insights "To triage").
+ * In that mode a created or dismissed proposal leaves the list immediately.
+ * `refreshIntervalMs` re-reads the first window periodically so proposals from newly completed tasks appear without a reload.
+ */
+export interface UseTaskRecommendationsOptions {
+  pendingOnly?: boolean;
+  refreshIntervalMs?: number;
+}
+
+export function useTaskRecommendations(projectId?: string, options?: UseTaskRecommendationsOptions) {
+  const pendingOnly = options?.pendingOnly === true;
+  const refreshIntervalMs = options?.refreshIntervalMs;
   const [items, setItems] = useState<TaskRecommendationListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -37,7 +50,7 @@ export function useTaskRecommendations(projectId?: string) {
     if (reset) { setLoading(true); } else { setLoadingMore(true); }
     setError(null);
     try {
-      const page = await fetchTaskRecommendations(projectId, { limit: PAGE_SIZE, offset });
+      const page = await fetchTaskRecommendations(projectId, { limit: PAGE_SIZE, offset, ...(pendingOnly ? { pendingOnly: true } : {}) });
       if (epoch !== epochRef.current) return;
       const merge = (current: TaskRecommendationListItem[]) => {
         const next = reset ? [] : current;
@@ -65,7 +78,7 @@ export function useTaskRecommendations(projectId?: string) {
       }
       fetchingRef.current = false;
     }
-  }, [projectId]);
+  }, [projectId, pendingOnly]);
 
   const refresh = useCallback(async () => {
     offsetRef.current = 0;
@@ -99,9 +112,11 @@ export function useTaskRecommendations(projectId?: string) {
     try {
       const response = await createTaskFromRecommendation(taskId, recommendationId, projectRef.current);
       if (epoch !== epochRef.current) return;
-      setItems((current) => current.map((item) => item.taskId === taskId && item.recommendation.id === recommendationId
-        ? { ...item, recommendation: { ...item.recommendation, createdTaskId: response.task.id } }
-        : item));
+      setItems((current) => pendingOnly
+        ? current.filter((item) => !(item.taskId === taskId && item.recommendation.id === recommendationId))
+        : current.map((item) => item.taskId === taskId && item.recommendation.id === recommendationId
+          ? { ...item, recommendation: { ...item.recommendation, createdTaskId: response.task.id } }
+          : item));
       setCreateStates((current) => new Map(current).set(key, { running: false, error: null }));
     } catch (cause) {
       if (epoch === epochRef.current) setCreateStates((current) => new Map(current).set(key, { running: false, error: cause instanceof Error ? cause.message : "Could not create task" }));
@@ -110,7 +125,38 @@ export function useTaskRecommendations(projectId?: string) {
       // clear the same composite key after a project switch has started a new create request.
       if (epoch === epochRef.current) creatingRef.current.delete(key);
     }
-  }, []);
+  }, [pendingOnly]);
 
-  return { items, loading, loadingMore, error, hasMore, totalRowCount, truncated, refresh, loadMore, createTask, createStates };
+  const dismiss = useCallback(async (taskId: string, recommendationId: string, dismissed = true) => {
+    const key = `${taskId}:${recommendationId}`;
+    if (creatingRef.current.has(key)) return;
+    creatingRef.current.add(key);
+    const epoch = epochRef.current;
+    setCreateStates((current) => new Map(current).set(key, { running: true, error: null }));
+    try {
+      await dismissTaskRecommendation(taskId, recommendationId, projectRef.current, dismissed);
+      if (epoch !== epochRef.current) return;
+      const dismissedAt = dismissed ? new Date().toISOString() : undefined;
+      setItems((current) => pendingOnly && dismissed
+        ? current.filter((item) => !(item.taskId === taskId && item.recommendation.id === recommendationId))
+        : current.map((item) => item.taskId === taskId && item.recommendation.id === recommendationId
+          ? { ...item, recommendation: { ...item.recommendation, dismissedAt } }
+          : item));
+      setCreateStates((current) => new Map(current).set(key, { running: false, error: null }));
+    } catch (cause) {
+      if (epoch === epochRef.current) setCreateStates((current) => new Map(current).set(key, { running: false, error: cause instanceof Error ? cause.message : "Could not dismiss proposal" }));
+    } finally {
+      if (epoch === epochRef.current) creatingRef.current.delete(key);
+    }
+  }, [pendingOnly]);
+
+  useEffect(() => {
+    if (!refreshIntervalMs || refreshIntervalMs <= 0) return;
+    const timer = setInterval(() => {
+      if (pagesRef.current <= 1 && !fetchingRef.current) void fetchPage(true);
+    }, refreshIntervalMs);
+    return () => clearInterval(timer);
+  }, [fetchPage, refreshIntervalMs]);
+
+  return { items, loading, loadingMore, error, hasMore, totalRowCount, truncated, refresh, loadMore, createTask, dismiss, createStates };
 }

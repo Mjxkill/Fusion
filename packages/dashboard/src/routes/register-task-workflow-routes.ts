@@ -1620,7 +1620,8 @@ export function registerTaskWorkflowRoutes(ctx: ApiRoutesContext, deps: TaskWork
       } catch {
         completeColumns = new Set(["done"]);
       }
-      res.json(await scopedStore.listTaskRecommendations({ completeColumns, limit, offset }));
+      const pendingOnly = req.query.pending === "true";
+      res.json(await scopedStore.listTaskRecommendations({ completeColumns, limit, offset, pendingOnly }));
     } catch (err: unknown) {
       if (err instanceof ApiError) throw err;
       rethrowAsApiError(err);
@@ -2512,6 +2513,57 @@ export function registerTaskWorkflowRoutes(ctx: ApiRoutesContext, deps: TaskWork
         });
       } finally {
         req.body = originalBody;
+      }
+    } catch (err: unknown) {
+      if (err instanceof ApiError) throw err;
+      rethrowAsApiError(err);
+    } finally {
+      releaseRecommendationLock?.();
+      releaseParentRecommendationLock?.();
+    }
+  });
+
+  /*
+  FNXC:ProposedTasks 2026-11-15-09:18:
+  Operators dismiss a proposal they will not turn into a task, so it leaves the board's Proposed column and the Insights "To triage" list.
+  Body `{ dismissed?: boolean }` (default true); `false` restores the proposal. Same parent/recommendation lock order and source eligibility as task creation; a proposal already turned into a task answers 409.
+  */
+  router.post("/tasks/:id/recommendations/:recommendationId/dismiss", async (req, res) => {
+    let releaseParentRecommendationLock: (() => void) | undefined;
+    let releaseRecommendationLock: (() => void) | undefined;
+    try {
+      const rawDismissed = req.body?.dismissed;
+      if (rawDismissed !== undefined && typeof rawDismissed !== "boolean") throw badRequest("dismissed must be a boolean");
+      const dismissed = rawDismissed ?? true;
+      const { store: scopedStore, projectId } = await getProjectContext(req);
+      const lockProjectId = projectId ?? "default";
+      releaseParentRecommendationLock = await acquireRecommendationIdempotencyLock(lockProjectId, req.params.id, "parent-mutation");
+      releaseRecommendationLock = await acquireRecommendationIdempotencyLock(lockProjectId, req.params.id, req.params.recommendationId);
+      const parent = await scopedStore.getTask(req.params.id).catch(() => null);
+      if (!parent || parent.deletedAt) throw notFound("Task not found");
+      if (!parent.recommendations?.some((item) => item.id === req.params.recommendationId)) throw notFound("Recommendation not found");
+      let completeColumns: ReadonlySet<string> | undefined;
+      if (typeof parent.archivedAt !== "string") {
+        try {
+          const columns = columnsWithFlag(await resolveWorkflowIrForTask(scopedStore, parent.id), "complete");
+          completeColumns = new Set(columns.length > 0 ? columns : ["done"]);
+        } catch {
+          completeColumns = new Set(["done"]);
+        }
+      }
+      try {
+        const updated = await scopedStore.setTaskRecommendationDismissed(parent.id, req.params.recommendationId, dismissed, completeColumns);
+        res.json({ parent: updated });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (
+          message === "Recommendation no longer exists"
+          || message === "Recommendation is already linked to a task"
+          || message === "Recommendations are available only on completed or archived tasks"
+        ) {
+          throw conflict(message);
+        }
+        throw error;
       }
     } catch (err: unknown) {
       if (err instanceof ApiError) throw err;

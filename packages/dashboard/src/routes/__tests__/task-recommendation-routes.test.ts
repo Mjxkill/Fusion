@@ -113,6 +113,23 @@ function buildApp(seed: Task[], projectId = "project-a") {
       tasks[index] = { ...tasks[index]!, recommendations };
       return tasks[index]!;
     }),
+    setTaskRecommendationDismissed: vi.fn(async (id: string, recommendationId: string, dismissed: boolean, completeColumns?: ReadonlySet<string>) => {
+      const index = tasks.findIndex((item) => item.id === id);
+      if (index < 0) throw new Error("Task not found");
+      if (completeColumns && !completeColumns.has(tasks[index]!.column)) {
+        throw new Error("Recommendations are available only on completed or archived tasks");
+      }
+      const recommendations = tasks[index]!.recommendations?.map((item) => {
+        if (item.id !== recommendationId) return item;
+        if (dismissed && item.createdTaskId) throw new Error("Recommendation is already linked to a task");
+        if (dismissed) return { ...item, dismissedAt: item.dismissedAt ?? "2026-11-15T09:18:00.000Z" };
+        const { dismissedAt: _dismissedAt, ...restored } = item;
+        return restored;
+      });
+      if (!recommendations?.some((item) => item.id === recommendationId)) throw new Error("Recommendation no longer exists");
+      tasks[index] = { ...tasks[index]!, recommendations };
+      return tasks[index]!;
+    }),
     recordActivity: vi.fn(async () => undefined),
   };
   const runtimeLogger = { error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn() };
@@ -882,5 +899,43 @@ describe("recommendation task creation route", () => {
     expect(response.status).toBe(400);
     expect(store.getTask).not.toHaveBeenCalled();
     expect(store.createTask).not.toHaveBeenCalled();
+  });
+
+  /*
+  FNXC:ProposedTasks 2026-11-15-09:18:
+  The board's Proposed column lists pending proposals only and lets the operator dismiss one; a created proposal cannot be dismissed.
+  */
+  describe("proposal triage", () => {
+    it("forwards the pending filter to the store", async () => {
+      const { app, store } = buildApp([parent()]);
+      expect((await performRequest(app, "GET", "/api/tasks/recommendations?pending=true")).status).toBe(200);
+      expect(store.listTaskRecommendations).toHaveBeenLastCalledWith(expect.objectContaining({ pendingOnly: true }));
+      await performRequest(app, "GET", "/api/tasks/recommendations");
+      expect(store.listTaskRecommendations).toHaveBeenLastCalledWith(expect.objectContaining({ pendingOnly: false }));
+    });
+
+    it("dismisses and restores a proposal on a completed source task", async () => {
+      const { app, tasks } = buildApp([parent()]);
+      const dismissed = await performRequest(app, "POST", "/api/tasks/FN-1/recommendations/rec-1/dismiss", JSON.stringify({}), { "content-type": "application/json" });
+      expect(dismissed.status).toBe(200);
+      expect(tasks[0]?.recommendations?.[0]?.dismissedAt).toEqual(expect.any(String));
+      const restored = await performRequest(app, "POST", "/api/tasks/FN-1/recommendations/rec-1/dismiss", JSON.stringify({ dismissed: false }), { "content-type": "application/json" });
+      expect(restored.status).toBe(200);
+      expect(tasks[0]?.recommendations?.[0]?.dismissedAt).toBeUndefined();
+    });
+
+    it("refuses to dismiss a proposal already turned into a task", async () => {
+      const { app, tasks } = buildApp([parent({ recommendations: [{ id: "rec-1", title: "Done", description: "Already created.", category: "feature", createdTaskId: "FN-7" }] })]);
+      const response = await performRequest(app, "POST", "/api/tasks/FN-1/recommendations/rec-1/dismiss", JSON.stringify({}), { "content-type": "application/json" });
+      expect(response.status).toBe(409);
+      expect(tasks[0]?.recommendations?.[0]?.dismissedAt).toBeUndefined();
+    });
+
+    it("rejects unknown proposals, non-boolean bodies and unfinished source tasks", async () => {
+      const { app } = buildApp([parent(), parent({ id: "FN-2", column: "in-progress" })]);
+      expect((await performRequest(app, "POST", "/api/tasks/FN-1/recommendations/nope/dismiss", JSON.stringify({}), { "content-type": "application/json" })).status).toBe(404);
+      expect((await performRequest(app, "POST", "/api/tasks/FN-1/recommendations/rec-1/dismiss", JSON.stringify({ dismissed: "yes" }), { "content-type": "application/json" })).status).toBe(400);
+      expect((await performRequest(app, "POST", "/api/tasks/FN-2/recommendations/rec-1/dismiss", JSON.stringify({}), { "content-type": "application/json" })).status).toBe(409);
+    });
   });
 });

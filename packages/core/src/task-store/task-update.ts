@@ -87,7 +87,7 @@ function assertValidRecommendations(value: unknown): asserts value is TaskRecomm
     if (!recommendation || typeof recommendation !== "object") throw new Error("recommendations must contain objects");
     const candidate = recommendation as TaskRecommendation;
     if (Object.keys(candidate).some((key) => !RECOMMENDATION_KEYS.has(key))) {
-      throw new Error("recommendations may contain only id, title, description, category, and createdTaskId");
+      throw new Error("recommendations may contain only id, title, description, category, createdTaskId, and dismissedAt");
     }
     if (
       typeof candidate.id !== "string" || !candidate.id.trim()
@@ -105,6 +105,9 @@ function assertValidRecommendations(value: unknown): asserts value is TaskRecomm
     }
     if (candidate.createdTaskId !== undefined && (typeof candidate.createdTaskId !== "string" || !/^[A-Z]+-\d+$/.test(candidate.createdTaskId))) {
       throw new Error("recommendations contain an invalid created task link");
+    }
+    if (candidate.dismissedAt !== undefined && (typeof candidate.dismissedAt !== "string" || Number.isNaN(Date.parse(candidate.dismissedAt)))) {
+      throw new Error("recommendations contain an invalid dismissal date");
     }
     const normalizedId = candidate.id.trim();
     if (ids.has(normalizedId)) throw new Error("recommendations must have unique ids");

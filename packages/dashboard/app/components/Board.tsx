@@ -1,5 +1,6 @@
 import { sortTasksForDisplayColumn, type TaskColumnSortMode, type Task, type TaskDetail, type Column as ColumnType, type ColumnId, type TaskCreateInput, type GithubIssueAction, type MergeResult, type ArchiveAllDoneResult } from "@fusion/core";
 import { Column } from "./Column";
+import { ProposedTasksColumn } from "./ProposedTasksColumn";
 import "./Lane.css";
 import "./Board.css";
 import type { ToastType } from "../hooks/useToast";
@@ -979,6 +980,7 @@ export function Board({ tasks, projectId, maxConcurrent, effectiveMaxConcurrent 
             ref={setBoardRef}
             {...boardMousePanBindings}
           >
+            <ProposedTasksColumn projectId={projectId} />
             {aggregateRenderedBoardColumns.map((columnDef) => {
               const isCreateColumn = aggregateQuickCreateTarget?.columnId === columnDef.id;
               const laneSortMode = columnDef.flags.archived
@@ -1063,6 +1065,8 @@ export function Board({ tasks, projectId, maxConcurrent, effectiveMaxConcurrent 
           ref={setBoardRef}
           {...boardMousePanBindings}
         >
+          {/* FNXC:ProposedTasks 2026-11-15-09:18: pending proposals sit before the workflow's first (planning) column on every board view. */}
+          <ProposedTasksColumn projectId={projectId} />
           {selectedWorkflowColumns.map((columnDef) => {
             const isCreateColumn = columnDef.id === selectedWorkflowCreateColumnId;
             const laneKey = `${selectedWorkflow.id}:${columnDef.id}`;

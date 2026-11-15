@@ -3294,6 +3294,18 @@
       "truncated": ""
     }
   },
+  "proposedTasks": {
+    "dismiss": "Ignorer",
+    "dismissed": "Ignorée",
+    "empty": "Aucune proposition en attente",
+    "filter": "Filtre des propositions",
+    "loadFailed": "Impossible de charger les propositions.",
+    "loading": "Chargement des propositions…",
+    "restore": "Restaurer",
+    "source": "Proposée par {{taskId}}",
+    "title": "Proposées",
+    "toTriage": "À traiter"
+  },
   "interview": {
     "addContextDirection": "Ajouter du contexte ou des directives supplémentaires...",
     "additionalComments": "Commentaires supplémentaires (optionnel)",

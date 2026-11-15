@@ -161,6 +161,51 @@ pgDescribe("TaskStore recommendation persistence (PostgreSQL)", () => {
     expect((await otherStore.getTask(parent.id))?.recommendations?.[0]?.createdTaskId).toBe(first.id);
   });
 
+  /*
+  FNXC:ProposedTasks 2026-11-15-09:18:
+  Dismissal is durable source-task state: it must survive a re-read, leave sibling proposals intact, hide the proposal from the pending list, and refuse a proposal already turned into a task.
+  */
+  it("dismisses, lists pending-only and restores proposals without touching siblings", async () => {
+    const store = h.store();
+    await insertTaskRow(h.layer(), {
+      id: "FN-PROPOSER",
+      title: "Source of proposals",
+      description: "Completed work that proposes follow-ups.",
+      column: "done",
+      currentStep: 0,
+      createdAt: "2026-11-15T00:00:00.000Z",
+      updatedAt: "2026-11-15T00:00:00.000Z",
+      recommendations: [
+        { id: "rec-a", title: "Add export", description: "Build export as a separate follow-up.", category: "feature" },
+        { id: "rec-b", title: "Improve filters", description: "Build saved filters as a separate follow-up.", category: "improvement" },
+        { id: "rec-c", title: "Fix sort", description: "Fix sort order as a separate follow-up.", category: "bug" },
+      ],
+    }, { lineageId: "lineage-FN-PROPOSER" });
+    const parent = { id: "FN-PROPOSER" };
+    await store.linkTaskRecommendation(parent.id, "rec-c", "FN-CHILD-C", new Set(["done"]));
+
+    const dismissed = await store.setTaskRecommendationDismissed(parent.id, "rec-a", true, new Set(["done"]));
+    expect(dismissed.recommendations?.[0]?.dismissedAt).toEqual(expect.any(String));
+    expect((await store.getTask(parent.id))?.recommendations?.map((item) => [item.id, Boolean(item.dismissedAt), item.createdTaskId])).toEqual([
+      ["rec-a", true, undefined],
+      ["rec-b", false, undefined],
+      ["rec-c", false, "FN-CHILD-C"],
+    ]);
+
+    const pending = await store.listTaskRecommendations({ completeColumns: new Set(["done"]), pendingOnly: true });
+    expect(pending.items.map((item) => item.recommendation.id)).toEqual(["rec-b"]);
+    const all = await store.listTaskRecommendations({ completeColumns: new Set(["done"]) });
+    expect(all.items.map((item) => item.recommendation.id)).toEqual(["rec-a", "rec-b", "rec-c"]);
+
+    await expect(store.setTaskRecommendationDismissed(parent.id, "rec-c", true, new Set(["done"]))).rejects.toThrow("already linked to a task");
+    await store.setTaskRecommendationDismissed(parent.id, "rec-a", false, new Set(["done"]));
+    expect((await store.getTask(parent.id))?.recommendations?.[0]?.dismissedAt).toBeUndefined();
+    await store.setTaskRecommendationDismissed(parent.id, "rec-b", true, new Set(["done"]));
+    const afterAll = await store.listTaskRecommendations({ completeColumns: new Set(["done"]), pendingOnly: true });
+    expect(afterAll.items.map((item) => item.recommendation.id)).toEqual(["rec-a"]);
+    expect(afterAll.totalRowCount).toBe(1);
+  });
+
   it("rejects a recommendation link when the parent has reopened", async () => {
     const store = h.store();
     const parent = await store.createTask({ description: "Complete work before creating recommendation children." });

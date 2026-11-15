@@ -657,6 +657,51 @@ export async function linkTaskRecommendationImpl(
   createdTaskId: string,
   completeColumns?: ReadonlySet<string>,
 ): Promise<Task> {
+  return mutateTaskRecommendationImpl(store, id, recommendationId, (recommendation) => {
+    if (recommendation.createdTaskId && recommendation.createdTaskId !== createdTaskId) {
+      throw new Error("Recommendation is already linked to another task");
+    }
+    if (recommendation.createdTaskId === createdTaskId) return null;
+    return { ...recommendation, createdTaskId };
+  }, completeColumns);
+}
+
+/**
+ * FNXC:ProposedTasks 2026-11-15-09:18:
+ * Operators triage proposals from the board's Proposed column: each proposal is either turned into a task or dismissed.
+ * Dismissal is stored on the source recommendation (`dismissedAt`) through the same advisory-locked read-modify-write as task links, so it survives restarts and archive snapshots.
+ * A proposal already turned into a task cannot be dismissed; `dismissed: false` restores a dismissed proposal.
+ */
+export async function setTaskRecommendationDismissedImpl(
+  store: TaskStore,
+  id: string,
+  recommendationId: string,
+  dismissed: boolean,
+  completeColumns?: ReadonlySet<string>,
+): Promise<Task> {
+  return mutateTaskRecommendationImpl(store, id, recommendationId, (recommendation) => {
+    if (dismissed) {
+      if (recommendation.createdTaskId) throw new Error("Recommendation is already linked to a task");
+      if (recommendation.dismissedAt) return null;
+      return { ...recommendation, dismissedAt: new Date().toISOString() };
+    }
+    if (!recommendation.dismissedAt) return null;
+    const { dismissedAt: _dismissedAt, ...restored } = recommendation;
+    return restored;
+  }, completeColumns);
+}
+
+/**
+ * Shared advisory-locked read-modify-write of one recommendation on its source task (live row or cold archive snapshot).
+ * `apply` returns the replacement recommendation, or null when the stored value already matches (no write).
+ */
+async function mutateTaskRecommendationImpl(
+  store: TaskStore,
+  id: string,
+  recommendationId: string,
+  apply: (recommendation: TaskRecommendation) => TaskRecommendation | null,
+  completeColumns?: ReadonlySet<string>,
+): Promise<Task> {
   return store.withTaskLock(id, async () => {
     const layer = store.asyncLayer!;
     const updated = await layer.transactionImmediate(async (tx) => {
@@ -683,14 +728,11 @@ export async function linkTaskRecommendationImpl(
       }
       const index = current.recommendations?.findIndex((item) => item.id === recommendationId) ?? -1;
       if (index < 0) throw new Error("Recommendation no longer exists");
-      const recommendation = current.recommendations![index]!;
-      if (recommendation.createdTaskId && recommendation.createdTaskId !== createdTaskId) {
-        throw new Error("Recommendation is already linked to another task");
-      }
-      if (recommendation.createdTaskId === createdTaskId) return { task: current, archived: Boolean(archivedEntry) };
+      const replacement = apply(current.recommendations![index]!);
+      if (!replacement) return { task: current, archived: Boolean(archivedEntry) };
 
       const recommendations: TaskRecommendation[] = current.recommendations!.map((item) =>
-        item.id === recommendationId ? { ...item, createdTaskId } : item,
+        item.id === recommendationId ? replacement : item,
       );
       const updatedAt = new Date().toISOString();
       if (archivedEntry) {

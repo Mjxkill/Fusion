@@ -48,6 +48,14 @@ vi.mock("../../sse-bus", () => ({
 const columnRenderCounts: Record<string, number> = {};
 
 // Mock child components so we only test Board's own rendering
+/*
+FNXC:ProposedTasks 2026-11-15-09:18:
+The board renders a Proposed column (pending task proposals) before the workflow columns. It fetches its own data, so Board tests stub it as a marker element.
+*/
+vi.mock("../ProposedTasksColumn", () => ({
+  ProposedTasksColumn: () => <div data-testid="proposed-tasks-column" />,
+}));
+
 vi.mock("../Column", () => ({
   Column: React.memo(({
     column,
@@ -495,12 +503,13 @@ describe("Board", () => {
     expect(triageTasks[0]?.id).toBe("FN-404");
   });
 
-  it("renders all 6 columns as direct children of .board (CSS selector target)", () => {
+  it("renders the Proposed column then all 6 columns as direct children of .board (CSS selector target)", () => {
     renderBoard();
     const board = screen.getByRole("main");
     // The mock Column renders <div data-testid="column-{col}" />, which are direct children
     const directChildren = Array.from(board.children);
-    expect(directChildren).toHaveLength(COLUMNS.length);
+    expect(directChildren).toHaveLength(COLUMNS.length + 1);
+    expect(directChildren[0]?.getAttribute("data-testid")).toBe("proposed-tasks-column");
     // Each direct child should be one of the column test-id elements
     for (const col of COLUMNS) {
       const colEl = screen.getByTestId(`column-${col}`);
@@ -2018,6 +2027,7 @@ describe("Board", () => {
       renderBoard({ tasks: [mkTask({ id: "FN-1" })] });
       await waitFor(() => expect(screen.getByRole("main").className).toContain("board-workflow-columns"));
       expect([...screen.getByRole("main").children].map((child) => child.getAttribute("data-testid"))).toEqual([
+        "proposed-tasks-column",
         "column-triage",
         "column-todo",
         "column-in-progress",

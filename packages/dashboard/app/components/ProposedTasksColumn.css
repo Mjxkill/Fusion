@@ -1,0 +1,56 @@
+/*
+FNXC:ProposedTasks 2026-11-15-09:18:
+Proposal cards reuse the board column and `.card` surfaces; only the inner layout is specific.
+The description is clamped so a long proposal does not push the others out of view.
+*/
+.proposed-task-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-sm);
+}
+
+.proposed-task-card__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}
+
+.proposed-task-card__category {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.proposed-task-card__source {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.proposed-task-card__title {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.proposed-task-card__description {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.proposed-task-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.proposed-task-card__error {
+  font-size: var(--font-size-xs);
+  color: var(--danger);
+}

@@ -5289,6 +5289,18 @@ export default interface Resources {
       "title": "Projects",
       "totalLabel": "Total"
     },
+    "proposedTasks": {
+      "dismiss": "Dismiss",
+      "dismissed": "Dismissed",
+      "empty": "No pending proposals",
+      "filter": "Proposal filter",
+      "loadFailed": "Could not load proposals.",
+      "loading": "Loading proposals…",
+      "restore": "Restore",
+      "source": "From {{taskId}}",
+      "title": "Proposed",
+      "toTriage": "To triage"
+    },
     "providerLogin": {
       "approveInBrowser": "Approve the sign-in in your browser",
       "authorizationReceived": "Authorization received.",

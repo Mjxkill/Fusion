@@ -3294,6 +3294,18 @@
       "truncated": ""
     }
   },
+  "proposedTasks": {
+    "dismiss": "",
+    "dismissed": "",
+    "empty": "",
+    "filter": "",
+    "loadFailed": "",
+    "loading": "",
+    "restore": "",
+    "source": "",
+    "title": "",
+    "toTriage": ""
+  },
   "interview": {
     "addContextDirection": "추가 컨텍스트나 방향을 입력하세요...",
     "additionalComments": "추가 의견 (선택 사항)",

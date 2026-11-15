@@ -41,6 +41,7 @@ export {
   fetchTaskRuntimeFallback,
   checkDuplicateTasks,
   createTaskFromRecommendation,
+  dismissTaskRecommendation,
   createTask,
   repairOverlapBlocker,
   fetchOverlapBlockerReport,

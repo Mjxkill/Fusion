@@ -3307,6 +3307,18 @@
       "truncated": "Showing the first 20 pages. Refresh to see the latest recommendations."
     }
   },
+  "proposedTasks": {
+    "dismiss": "Dismiss",
+    "dismissed": "Dismissed",
+    "empty": "No pending proposals",
+    "filter": "Proposal filter",
+    "loadFailed": "Could not load proposals.",
+    "loading": "Loading proposals…",
+    "restore": "Restore",
+    "source": "From {{taskId}}",
+    "title": "Proposed",
+    "toTriage": "To triage"
+  },
   "interview": {
     "addContextDirection": "Add any extra context or direction...",
     "additionalComments": "Additional comments (optional)",

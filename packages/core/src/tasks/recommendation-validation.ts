@@ -16,7 +16,8 @@ regex that drifts.
 */
 export const UNSAFE_RECOMMENDATION_CONTENT = /(?:```|\b(?:api[_-]?key|password|secret|token)\b\s*(?:=|:)\s*\S+|(?:^|\n)\s*(?:[$#]\s*)?(?:npm|pnpm|yarn|bun|npx|node|deno|python(?:3)?|bash|sh|zsh|fish|cmd(?:\.exe)?|powershell|curl|wget|git|docker|kubectl|make|just|rm|cp|mv|chmod|sudo)\b|(?:^|\n)\s*(?:run|execute)\s+(?:(?:npm|pnpm|yarn|bun|npx|node|deno|python(?:3)?|bash|sh|zsh|fish|cmd(?:\.exe)?|powershell|curl|wget|git|docker|kubectl|make|just|rm|cp|mv|chmod|sudo)\b|(?:\.?\.?[\\/]|~[\\/])\S*|\S+\s+(?:-{1,2}\S*|\S*[\\/]\S*|\S+\.(?:sh|py|js|ts|mjs|cjs|exe|bat|cmd)\b))|`(?:npm|pnpm|yarn|bun|npx|node|deno|python(?:3)?|bash|sh|zsh|fish|cmd|powershell|curl|wget|git|docker|kubectl|make|just|rm|cp|mv|chmod|sudo)\b)/im;
 
-export const RECOMMENDATION_KEYS = new Set(["id", "title", "description", "category", "createdTaskId"]);
+/** FNXC:ProposedTasks 2026-11-15-09:18: `dismissedAt` records an operator dismissal from the Proposed column; agents never write it (normalization drops it like `createdTaskId`). */
+export const RECOMMENDATION_KEYS = new Set(["id", "title", "description", "category", "createdTaskId", "dismissedAt"]);
 export const RECOMMENDATION_SNAPSHOT_KEYS = new Set(["id", "title", "description", "category"]);
 export const RECOMMENDATION_ID_MAX_LENGTH = 128;
 export const RECOMMENDATION_TITLE_MAX_LENGTH = 200;
