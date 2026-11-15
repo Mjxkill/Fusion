@@ -39,6 +39,12 @@ export function useTaskRecommendations(projectId?: string, options?: UseTaskReco
   const pagesRef = useRef(0);
   const fetchingRef = useRef(false);
   const creatingRef = useRef(new Set<string>());
+  /*
+  FNXC:ProposedTasks 2026-11-15-11:16:
+  A periodic refresh started before a create/dismiss can resolve after it and bring the handled proposal back.
+  In pending mode, keys handled in this session are filtered out of every later page.
+  */
+  const handledRef = useRef(new Set<string>());
   const epochRef = useRef(0);
   const projectRef = useRef(projectId);
 
@@ -58,6 +64,7 @@ export function useTaskRecommendations(projectId?: string, options?: UseTaskReco
         return [...next, ...page.items.filter((item) => {
           const key = `${item.taskId}:${item.recommendation.id}`;
           if (seen.has(key)) return false;
+          if (pendingOnly && handledRef.current.has(key)) return false;
           seen.add(key);
           return true;
         })];
@@ -92,6 +99,7 @@ export function useTaskRecommendations(projectId?: string, options?: UseTaskReco
     epochRef.current += 1;
     fetchingRef.current = false;
     creatingRef.current.clear();
+    handledRef.current.clear();
     offsetRef.current = 0;
     pagesRef.current = 0;
     setItems([]); setHasMore(false); setTotalRowCount(0); setTruncated(false); setCreateStates(new Map());
@@ -112,6 +120,7 @@ export function useTaskRecommendations(projectId?: string, options?: UseTaskReco
     try {
       const response = await createTaskFromRecommendation(taskId, recommendationId, projectRef.current);
       if (epoch !== epochRef.current) return;
+      handledRef.current.add(key);
       setItems((current) => pendingOnly
         ? current.filter((item) => !(item.taskId === taskId && item.recommendation.id === recommendationId))
         : current.map((item) => item.taskId === taskId && item.recommendation.id === recommendationId
@@ -136,6 +145,8 @@ export function useTaskRecommendations(projectId?: string, options?: UseTaskReco
     try {
       await dismissTaskRecommendation(taskId, recommendationId, projectRef.current, dismissed);
       if (epoch !== epochRef.current) return;
+      if (dismissed) handledRef.current.add(key);
+      else handledRef.current.delete(key);
       const dismissedAt = dismissed ? new Date().toISOString() : undefined;
       setItems((current) => pendingOnly && dismissed
         ? current.filter((item) => !(item.taskId === taskId && item.recommendation.id === recommendationId))

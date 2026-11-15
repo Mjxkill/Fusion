@@ -63,6 +63,31 @@ describe("ProposedTasksColumn", () => {
     expect(screen.getByText("Proposal rec-b")).toBeDefined();
   });
 
+  it("does not bring back a created proposal when an older refresh resolves afterwards", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      mockFetch.mockResolvedValue(page([proposal("VIDE-1", "rec-a"), proposal("VIDE-2", "rec-b")]) as never);
+      mockCreate.mockResolvedValue({ task: { id: "VIDE-9" }, parent: { id: "VIDE-1" } } as never);
+
+      render(<ProposedTasksColumn projectId="proj-1" />);
+      const create = await screen.findByTestId("proposed-task-create-VIDE-1:rec-a");
+      await act(async () => {
+        fireEvent.click(create);
+      });
+      await waitFor(() => expect(screen.queryByText("Proposal rec-a")).toBeNull());
+
+      // The server-side link may lag: the periodic refresh still lists the created proposal.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(30_000);
+      });
+      expect(mockFetch.mock.calls.length).toBeGreaterThanOrEqual(2);
+      expect(screen.queryByText("Proposal rec-a")).toBeNull();
+      expect(screen.getByText("Proposal rec-b")).toBeDefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("removes a proposal once it is dismissed", async () => {
     mockFetch.mockResolvedValue(page([proposal("VIDE-1", "rec-a")]) as never);
     mockDismiss.mockResolvedValue({ parent: { id: "VIDE-1" } } as never);

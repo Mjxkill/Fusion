@@ -2,6 +2,8 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
   ANALYSIS_EVIDENCE_MARKER,
+  ProjectAnalysisNotApplicableError,
+  applyProjectAnalysisJob,
   __resetProjectAnalysisJobsForTests,
   applyProjectAnalysisPlan,
   buildProjectAnalysisUserMessage,
@@ -181,5 +183,40 @@ describe("project analysis", () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(getProjectAnalysisJob(job.id, root)).toMatchObject({ status: "complete", plan: { missions: [expect.objectContaining({ title: "Génération" })] } });
+  });
+
+  /*
+  FNXC:ProjectAnalysis 2026-11-15-11:16:
+  An analysis applies at most once: a concurrent second apply is refused, and a failure midway never returns the job to "complete".
+  */
+  it("refuses a concurrent second apply instead of creating everything twice", async () => {
+    const stores = fakeStores();
+    const root = "/tmp/fusion-project-analysis-apply-lock-test";
+    const job = { id: "job-1", status: "complete" as const, startedAt: "2026-11-15T10:00:00Z", progress: "", plan: firstPlan };
+    const [first, second] = await Promise.allSettled([
+      applyProjectAnalysisJob(root, job as never, firstPlan, stores),
+      applyProjectAnalysisJob(root, job as never, firstPlan, stores),
+    ]);
+    expect(first.status).toBe("fulfilled");
+    expect(second).toMatchObject({ status: "rejected", reason: expect.any(ProjectAnalysisNotApplicableError) });
+    expect(stores.missions).toHaveLength(1);
+    expect(job.status).toBe("applied");
+  });
+
+  it("marks a partially applied analysis as failed so the same plan cannot be re-applied", async () => {
+    const stores = fakeStores();
+    let calls = 0;
+    const addFeature = stores.missionStore.addFeature;
+    stores.missionStore.addFeature = (sliceId, input) => {
+      calls += 1;
+      if (calls === 2) throw new Error("database down");
+      return addFeature(sliceId, input);
+    };
+    const job = { id: "job-2", status: "complete" as const, startedAt: "2026-11-15T10:00:00Z", progress: "", plan: firstPlan };
+    await expect(applyProjectAnalysisJob("/tmp/fusion-project-analysis-partial-test", job as never, firstPlan, stores)).rejects.toThrow("database down");
+    expect(job.status).toBe("error");
+    expect((job as { error?: string }).error).toContain("Run a new analysis");
+    await expect(applyProjectAnalysisJob("/tmp/fusion-project-analysis-partial-test", job as never, firstPlan, stores)).rejects.toBeInstanceOf(ProjectAnalysisNotApplicableError);
+    expect(stores.missions).toHaveLength(1);
   });
 });

@@ -87,7 +87,7 @@ export interface ProjectAnalysisApplyReport {
   featureStatusKeptForLinkedTask: number;
 }
 
-export type ProjectAnalysisStatus = "running" | "complete" | "error" | "applied" | "cancelled";
+export type ProjectAnalysisStatus = "running" | "complete" | "applying" | "error" | "applied" | "cancelled";
 
 export interface ProjectAnalysisJob {
   id: string;
@@ -484,6 +484,7 @@ export function startProjectAnalysis(options: StartProjectAnalysisOptions): Proj
   const runningId = latestByRoot.get(options.rootDir);
   const running = runningId ? jobs.get(runningId) : undefined;
   if (running?.status === "running") return running;
+  if (running?.status === "applying") throw new Error("An analysis is being applied; start a new one when it finishes");
 
   const job: ProjectAnalysisJob = { id: randomUUID(), status: "running", startedAt: new Date().toISOString(), modelProvider: options.modelProvider, modelId: options.modelId, progress: "" };
   jobs.set(job.id, job);
@@ -527,11 +528,37 @@ export function cancelProjectAnalysis(id: string, rootDir: string): boolean {
   return true;
 }
 
-export async function markProjectAnalysisApplied(rootDir: string, job: ProjectAnalysisJob, plan: ProjectAnalysisPlan, report: ProjectAnalysisApplyReport): Promise<void> {
-  job.plan = plan;
-  job.status = "applied";
-  job.applyReport = report;
-  await persistLatest(rootDir, job);
+export class ProjectAnalysisNotApplicableError extends Error {}
+
+/**
+ * FNXC:ProjectAnalysis 2026-11-15-11:16:
+ * Applying creates missions, so it must run at most once per analysis.
+ * The job moves to "applying" synchronously, before the first await, so a second concurrent request (double click, second tab) is refused instead of creating everything twice.
+ * If applying fails midway, some entries already exist: the job becomes "error" (never back to "complete"), so the same plan cannot be re-applied and duplicate them.
+ * A new analysis sees what was created and reuses it.
+ */
+export async function applyProjectAnalysisJob(
+  rootDir: string,
+  job: ProjectAnalysisJob,
+  plan: ProjectAnalysisPlan,
+  stores: { missionStore: AnalysisMissionStore; goalStore: AnalysisGoalStore },
+): Promise<ProjectAnalysisApplyReport> {
+  if (job.status !== "complete") throw new ProjectAnalysisNotApplicableError(`Analysis is ${job.status}, not ready to apply`);
+  job.status = "applying";
+  try {
+    const report = await applyProjectAnalysisPlan(plan, stores);
+    job.plan = plan;
+    job.status = "applied";
+    job.applyReport = report;
+    job.finishedAt = new Date().toISOString();
+    await persistLatest(rootDir, job);
+    return report;
+  } catch (error) {
+    job.status = "error";
+    job.error = `Application interrupted after a partial write (${error instanceof Error ? error.message : String(error)}). Run a new analysis: it reuses what was already created.`;
+    await persistLatest(rootDir, job);
+    throw error;
+  }
 }
 
 async function runAnalysisAgent(

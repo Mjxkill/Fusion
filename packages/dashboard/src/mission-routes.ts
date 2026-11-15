@@ -1125,14 +1125,19 @@ export function createMissionRouter(
       const effectiveModel = resolvePlanningSettingsModel(settings);
       const { startProjectAnalysis, readExistingProjectState } = await import("./project-analysis.js");
       const existing = await readExistingProjectState(scopedStore.getMissionStore() as never, scopedStore.getGoalStore() as never, ACTIVE_GOAL_LIMIT);
-      const job = startProjectAnalysis({
-        rootDir: scopedStore.getRootDir(),
-        store: scopedStore,
-        existing,
-        modelProvider: modelProvider || effectiveModel.provider,
-        modelId: modelId || effectiveModel.modelId,
-        pluginRunner,
-      });
+      let job;
+      try {
+        job = startProjectAnalysis({
+          rootDir: scopedStore.getRootDir(),
+          store: scopedStore,
+          existing,
+          modelProvider: modelProvider || effectiveModel.provider,
+          modelId: modelId || effectiveModel.modelId,
+          pluginRunner,
+        });
+      } catch (error) {
+        throw conflict(error instanceof Error ? error.message : String(error));
+      }
       res.status(202).json(job);
     }),
   );
@@ -1161,18 +1166,21 @@ export function createMissionRouter(
     catchTypedHandler(async (req, res) => {
       const { store: scopedStore } = await getProjectContext(req);
       const rootDir = scopedStore.getRootDir();
-      const { getLatestProjectAnalysis, getProjectAnalysisJob, normaliseProjectAnalysisPlan, applyProjectAnalysisPlan, markProjectAnalysisApplied } = await import("./project-analysis.js");
+      const { getLatestProjectAnalysis, getProjectAnalysisJob, normaliseProjectAnalysisPlan, applyProjectAnalysisJob, ProjectAnalysisNotApplicableError } = await import("./project-analysis.js");
       const job = getProjectAnalysisJob(req.params.analysisId, rootDir)
         ?? (await getLatestProjectAnalysis(rootDir).then((latest) => (latest?.id === req.params.analysisId ? latest : undefined)));
       if (!job) throw notFound("Analysis not found");
-      if (job.status !== "complete") throw conflict(`Analysis is ${job.status}, not ready to apply`);
       const plan = normaliseProjectAnalysisPlan(req.body?.plan ?? job.plan);
-      const report = await applyProjectAnalysisPlan(plan, {
-        missionStore: scopedStore.getMissionStore() as never,
-        goalStore: scopedStore.getGoalStore() as never,
-      });
-      await markProjectAnalysisApplied(rootDir, job, plan, report);
-      res.json({ report });
+      try {
+        const report = await applyProjectAnalysisJob(rootDir, job, plan, {
+          missionStore: scopedStore.getMissionStore() as never,
+          goalStore: scopedStore.getGoalStore() as never,
+        });
+        res.json({ report });
+      } catch (error) {
+        if (error instanceof ProjectAnalysisNotApplicableError) throw conflict(error.message);
+        throw error;
+      }
     }),
   );
 

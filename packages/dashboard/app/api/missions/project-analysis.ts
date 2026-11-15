@@ -29,7 +29,7 @@ export interface ProjectAnalysisApplyReport {
 
 export interface ProjectAnalysisJob {
   id: string;
-  status: "running" | "complete" | "error" | "applied" | "cancelled";
+  status: "running" | "complete" | "applying" | "error" | "applied" | "cancelled";
   startedAt: string;
   finishedAt?: string;
   modelProvider?: string;
