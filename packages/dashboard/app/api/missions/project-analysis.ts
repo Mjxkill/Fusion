@@ -55,9 +55,29 @@ export function cancelProjectAnalysis(analysisId: string, projectId?: string): P
   return api<{ cancelled: boolean }>(withProjectId(`/missions/analysis/${encodeURIComponent(analysisId)}/cancel`, projectId), { method: "POST", body: JSON.stringify({}) });
 }
 
+/**
+ * FNXC:ProjectAnalysis 2026-11-15-12:48:
+ * Sends only the review choices (checkboxes, feature statuses), aligned by index on the plan the server stored; the full plan exceeded the API body limit on large projects.
+ */
+export function reviewChoicesOf(plan: ProjectAnalysisPlan) {
+  return {
+    goals: plan.goals.map((goal) => goal.selected !== false),
+    missions: plan.missions.map((mission) => ({
+      selected: mission.selected !== false,
+      milestones: mission.milestones.map((milestone) => ({
+        selected: milestone.selected !== false,
+        slices: milestone.slices.map((slice) => ({
+          selected: slice.selected !== false,
+          features: slice.features.map((feature) => ({ selected: feature.selected !== false, status: feature.status })),
+        })),
+      })),
+    })),
+  };
+}
+
 export function applyProjectAnalysis(analysisId: string, plan: ProjectAnalysisPlan, projectId?: string): Promise<{ report: ProjectAnalysisApplyReport }> {
   return api<{ report: ProjectAnalysisApplyReport }>(withProjectId(`/missions/analysis/${encodeURIComponent(analysisId)}/apply`, projectId), {
     method: "POST",
-    body: JSON.stringify({ plan }),
+    body: JSON.stringify({ choices: reviewChoicesOf(plan) }),
   });
 }

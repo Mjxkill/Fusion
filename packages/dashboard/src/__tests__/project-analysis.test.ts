@@ -1,7 +1,11 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it } from "vitest";
+import { readFileSync, existsSync } from "node:fs";
 import {
   ANALYSIS_EVIDENCE_MARKER,
+  ReviewChoicesMismatchError,
+  applyReviewChoices,
+  reviewChoicesOf,
   ProjectAnalysisNotApplicableError,
   applyProjectAnalysisJob,
   __resetProjectAnalysisJobsForTests,
@@ -235,5 +239,36 @@ describe("project analysis", () => {
     expect((job as { error?: string }).error).toContain("Run a new analysis");
     await expect(applyProjectAnalysisJob("/tmp/fusion-project-analysis-partial-test", job as never, firstPlan, stores)).rejects.toBeInstanceOf(ProjectAnalysisNotApplicableError);
     expect(stores.missions).toHaveLength(1);
+  });
+
+  /*
+  FNXC:ProjectAnalysis 2026-11-15-12:48:
+  Real failure: applying the Fusion analysis (168 features, ~160 KB plan) returned payload-too-large. The dialog sends only review choices; they must stay small and apply exactly to the stored plan.
+  */
+  it("applies review choices onto the stored plan and refuses a shape that does not match", () => {
+    const choices = reviewChoicesOf(firstPlan);
+    choices.missions[0]!.milestones[0]!.slices[0]!.features[0] = { selected: false, status: "done" };
+    choices.missions[0]!.milestones[0]!.slices[0]!.features[1] = { selected: true, status: "in-progress" };
+    const applied = applyReviewChoices(firstPlan, choices);
+    expect(applied.missions[0]!.milestones[0]!.slices[0]!.features.map((f) => [f.title, f.selected, f.status])).toEqual([
+      ["flux2_image", false, "done"],
+      ["qwen_image", true, "in-progress"],
+    ]);
+    expect(applied.missions[0]!.milestones[0]!.slices[0]!.features[0]!.evidence).toBe("api/studio/generators/_image.py");
+    expect(() => applyReviewChoices(firstPlan, { goals: [], missions: [] })).toThrow(ReviewChoicesMismatchError);
+    const bad = reviewChoicesOf(firstPlan);
+    (bad.missions[0]!.milestones[0]!.slices[0]!.features[0] as { status: string }).status = "shipped";
+    expect(() => applyReviewChoices(firstPlan, bad)).toThrow(ReviewChoicesMismatchError);
+    expect(() => applyReviewChoices(firstPlan, null)).toThrow(ReviewChoicesMismatchError);
+  });
+
+  it("keeps the review payload far below the 100 KB API limit for a large real plan", () => {
+    const real = "/root/fusion/.fusion/project-analysis/latest.json";
+    const plan = existsSync(real)
+      ? (JSON.parse(readFileSync(real, "utf8")) as { plan: ProjectAnalysisPlan }).plan
+      : { goals: [], missions: Array.from({ length: 8 }, (_, m) => ({ title: `M${m}`, milestones: Array.from({ length: 4 }, (_, l) => ({ title: `L${l}`, slices: Array.from({ length: 3 }, (_, s) => ({ title: `S${s}`, features: Array.from({ length: 8 }, (_, f) => ({ title: `F${f}`, description: "x".repeat(500), evidence: "y".repeat(500), status: "done" as const })) })) })) })) };
+    const body = JSON.stringify({ choices: reviewChoicesOf(plan) });
+    expect(JSON.stringify({ plan }).length).toBeGreaterThan(body.length * 5);
+    expect(body.length).toBeLessThan(30_000);
   });
 });

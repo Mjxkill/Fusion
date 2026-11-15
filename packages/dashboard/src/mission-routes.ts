@@ -1166,11 +1166,18 @@ export function createMissionRouter(
     catchTypedHandler(async (req, res) => {
       const { store: scopedStore } = await getProjectContext(req);
       const rootDir = scopedStore.getRootDir();
-      const { getLatestProjectAnalysis, getProjectAnalysisJob, normaliseProjectAnalysisPlan, applyProjectAnalysisJob, ProjectAnalysisNotApplicableError } = await import("./project-analysis.js");
+      const { getLatestProjectAnalysis, getProjectAnalysisJob, applyReviewChoices, ReviewChoicesMismatchError, applyProjectAnalysisJob, ProjectAnalysisNotApplicableError } = await import("./project-analysis.js");
       const job = getProjectAnalysisJob(req.params.analysisId, rootDir)
         ?? (await getLatestProjectAnalysis(rootDir).then((latest) => (latest?.id === req.params.analysisId ? latest : undefined)));
       if (!job) throw notFound("Analysis not found");
-      const plan = normaliseProjectAnalysisPlan(req.body?.plan ?? job.plan);
+      if (!job.plan) throw conflict("Analysis has no plan to apply");
+      let plan;
+      try {
+        plan = req.body?.choices === undefined ? job.plan : applyReviewChoices(job.plan, req.body.choices);
+      } catch (error) {
+        if (error instanceof ReviewChoicesMismatchError) throw conflict(error.message);
+        throw error;
+      }
       try {
         const report = await applyProjectAnalysisJob(rootDir, job, plan, {
           missionStore: scopedStore.getMissionStore() as never,

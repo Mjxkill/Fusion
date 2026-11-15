@@ -342,6 +342,85 @@ async function saveRawResponse(rootDir: string, text: string): Promise<void> {
   }
 }
 
+// ── Review choices ─────────────────────────────────────────────────────────
+
+/**
+ * FNXC:ProjectAnalysis 2026-11-15-12:48:
+ * The first apply on a real project (Fusion, 168 features) failed with "payload-too-large": the dialog posted the whole reviewed plan (~160 KB) and the API body limit is 100 KB.
+ * The server already holds the plan, and the review only changes checkboxes and feature statuses, so the dialog now sends just those choices, aligned by index on the stored plan.
+ * A shape that does not match the stored plan is refused (the analysis changed under the dialog) instead of being applied to the wrong entries.
+ */
+export interface ProjectAnalysisReviewChoices {
+  goals: boolean[];
+  missions: Array<{
+    selected: boolean;
+    milestones: Array<{
+      selected: boolean;
+      slices: Array<{ selected: boolean; features: Array<{ selected: boolean; status: AnalysisFeatureStatus }> }>;
+    }>;
+  }>;
+}
+
+export function reviewChoicesOf(plan: ProjectAnalysisPlan): ProjectAnalysisReviewChoices {
+  return {
+    goals: plan.goals.map((goal) => goal.selected !== false),
+    missions: plan.missions.map((mission) => ({
+      selected: mission.selected !== false,
+      milestones: mission.milestones.map((milestone) => ({
+        selected: milestone.selected !== false,
+        slices: milestone.slices.map((slice) => ({
+          selected: slice.selected !== false,
+          features: slice.features.map((feature) => ({ selected: feature.selected !== false, status: feature.status })),
+        })),
+      })),
+    })),
+  };
+}
+
+export class ReviewChoicesMismatchError extends Error {}
+
+/** Returns a copy of the stored plan with the operator's review choices applied; throws when the shapes differ. */
+export function applyReviewChoices(plan: ProjectAnalysisPlan, choices: unknown): ProjectAnalysisPlan {
+  const mismatch = (): never => { throw new ReviewChoicesMismatchError("The review does not match the stored analysis; reload the analysis"); };
+  const c = choices as ProjectAnalysisReviewChoices;
+  if (!c || !Array.isArray(c.goals) || !Array.isArray(c.missions)) mismatch();
+  if (c.goals.length !== plan.goals.length || c.missions.length !== plan.missions.length) mismatch();
+  const bool = (value: unknown): boolean => (typeof value === "boolean" ? value : mismatch());
+  return {
+    ...plan,
+    goals: plan.goals.map((goal, gi) => ({ ...goal, selected: bool(c.goals[gi]) })),
+    missions: plan.missions.map((mission, mi) => {
+      const cm = c.missions[mi]!;
+      if (!Array.isArray(cm?.milestones) || cm.milestones.length !== mission.milestones.length) mismatch();
+      return {
+        ...mission,
+        selected: bool(cm.selected),
+        milestones: mission.milestones.map((milestone, li) => {
+          const cl = cm.milestones[li]!;
+          if (!Array.isArray(cl?.slices) || cl.slices.length !== milestone.slices.length) mismatch();
+          return {
+            ...milestone,
+            selected: bool(cl.selected),
+            slices: milestone.slices.map((slice, si) => {
+              const cs = cl.slices[si]!;
+              if (!Array.isArray(cs?.features) || cs.features.length !== slice.features.length) mismatch();
+              return {
+                ...slice,
+                selected: bool(cs.selected),
+                features: slice.features.map((feature, fi) => {
+                  const cf = cs.features[fi]!;
+                  if (!ANALYSIS_FEATURE_STATUSES.includes(cf?.status)) mismatch();
+                  return { ...feature, selected: bool(cf.selected), status: cf.status };
+                }),
+              };
+            }),
+          };
+        }),
+      };
+    }),
+  };
+}
+
 // ── Apply ────────────────────────────────────────────────────────────────────
 
 /** Marker separating the operator-facing description from the latest analysis evidence; re-analysis replaces everything after it. */
