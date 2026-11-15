@@ -45,13 +45,15 @@ export function ProposedTasksColumn({ projectId }: ProposedTasksColumnProps) {
           const action = proposals.createStates.get(key);
           return (
             <div className="card proposed-task-card" key={key} data-testid={`proposed-task-${key}`}>
-              <div className="proposed-task-card__meta">
-                <span className="proposed-task-card__category">{item.recommendation.category}</span>
-                <span className="proposed-task-card__source" title={item.taskTitle}>{t("proposedTasks.source", "From {{taskId}}", { taskId: item.taskId })}</span>
+              <div className="card-header">
+                <span className="card-id" title={t("proposedTasks.source", "From {{taskId}}", { taskId: item.taskId })}>{item.taskId}</span>
+                <span className="card-workflow-badge">{item.recommendation.category}</span>
               </div>
-              <div className="proposed-task-card__title">{item.recommendation.title}</div>
-              <p className="proposed-task-card__description">{item.recommendation.description}</p>
-              <div className="proposed-task-card__actions">
+              <div className="card-title">{item.recommendation.title}</div>
+              <div className="card-meta">
+                <span className="proposed-task-card__description">{item.recommendation.description}</span>
+              </div>
+              <div className="card-footer-row">
                 <button
                   className="btn btn-primary btn-sm"
                   type="button"
