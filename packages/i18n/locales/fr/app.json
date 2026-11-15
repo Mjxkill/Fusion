@@ -3056,6 +3056,7 @@
     "unavailable": "Groupe de branches indisponible"
   },
   "header": {
+    "production": "Production",
     "activePlanningSessions_one": "",
     "activePlanningSessions_other": "",
     "addFirstScript": "Ajouter votre premier script",
@@ -3293,6 +3294,43 @@
       "loadMoreFailed": "",
       "truncated": ""
     }
+  },
+  "production": {
+    "active": "en marche",
+    "close": "Fermer",
+    "confirmDeploy": "Déployer {{branch}} ? Les services modifiés sont reconstruits et redémarrés.",
+    "confirmMerge": "Fusionner {{count}} commits de {{from}} dans {{to}} ?",
+    "confirmRestart": "Redémarrer {{unit}} ?",
+    "confirmRestartFusion": "Redémarrer Fusion une fois les agents en cours terminés ?",
+    "confirmUpdate": "Compiler et installer Fusion depuis {{branch}}, puis le redémarrer ?",
+    "deploy": "Déployer",
+    "deployTitle": "Déploiement",
+    "deployedState": "Déployé : {{deployed}} — branche : {{head}} ({{count}} commits à déployer)",
+    "fusionHint": "Les moteurs sont mis en pause, les agents en cours terminent leur travail, puis Fusion redémarre et les moteurs reprennent. La mise à jour compile et installe d'abord la branche {{branch}} ; si la nouvelle version ne démarre pas, la précédente est remise en place.",
+    "fusionTitle": "Fusion",
+    "inactive": "arrêté",
+    "loading": "Chargement…",
+    "localChangesKept": "Modifications locales non commitées, non touchées par la fusion, laissées telles quelles : {{files}}",
+    "mergeButton": "Fusionner dans {{to}}",
+    "mergeCommitNote": "{{to}} a {{count}} commits que {{from}} n'a pas : un commit de fusion sera créé.",
+    "mergeSummary": "{{count}} commits, {{files}} fichiers.",
+    "mergeTitle": "{{from}} → {{to}}",
+    "merged": "{{count}} commits fusionnés dans {{to}} ({{sha}}).",
+    "moreCommits": "… et {{count}} de plus",
+    "neverDeployed": "Aucun déploiement enregistré : le premier déploiement reconstruit et redémarre tous les services.",
+    "noOps": "Aucune action de déploiement ou de redémarrage n'est configurée pour ce projet. Déclarez-le dans /etc/fusion/ops.json pour avoir ces boutons.",
+    "refresh": "Actualiser",
+    "restart": "Redémarrer",
+    "restartFusion": "Redémarrer Fusion",
+    "runStatus": {
+      "failed": "échouée",
+      "running": "en cours",
+      "success": "réussie"
+    },
+    "runsTitle": "Dernières actions",
+    "title": "Production",
+    "unreachable": "Fusion ne répond pas (redémarrage en cours ?). Nouvel essai…",
+    "update": "Mettre à jour Fusion"
   },
   "projectAnalysis": {
     "applied": "Appliquée : {{missions}} missions, {{milestones}} jalons, {{slices}} tranches et {{features}} fonctionnalités créés ; {{updated}} fonctionnalités mises à jour ; {{goals}} objectifs créés.",

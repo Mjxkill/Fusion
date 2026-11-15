@@ -53,6 +53,7 @@ import { registerSettingsMemoryRoutes } from "./routes/register-settings-memory-
 import { registerSecretsRoutes } from "./routes/register-secrets-routes.js";
 import { registerMessagingScriptRoutes } from "./routes/register-messaging-scripts.js";
 import { registerGitGitHubRoutes } from "./routes/register-git-github.js";
+import { registerProductionRoutes } from "./routes/register-production-routes.js";
 import { registerGitLabRoutes } from "./routes/register-gitlab.js";
 import { registerJiraRoutes } from "./routes/register-jira.js";
 import { registerFilesTerminalWorkspaceRoutes } from "./routes/register-files-terminal-workspaces.js";
@@ -1019,6 +1020,8 @@ export function createApiRoutes(store: TaskStore, options?: ServerOptions): Rout
   registrarMounter.mount("registerChatRoomRoutes", () => registerChatRoomRoutes(routeContext, { upload }));
   registrarMounter.mount("registerMessagingScriptRoutes", () => registerMessagingScriptRoutes(routeContext));
   registrarMounter.mount("registerGitGitHubRoutes", () => registerGitGitHubRoutes(routeContext));
+  // FNXC:ProductionOps 2026-11-15-12:00: per-project Production panel (merge, deploy, restart, update Fusion).
+  registrarMounter.mount("registerProductionRoutes", () => registerProductionRoutes(routeContext));
   registrarMounter.mount("registerGitLabRoutes", () => registerGitLabRoutes(routeContext));
   registrarMounter.mount("registerJiraRoutes", () => registerJiraRoutes(routeContext));
   registrarMounter.mount("registerFilesTerminalWorkspaceRoutes", () => registerFilesTerminalWorkspaceRoutes(routeContext));

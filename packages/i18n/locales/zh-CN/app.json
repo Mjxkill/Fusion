@@ -3056,6 +3056,7 @@
     "unavailable": "分支组不可用"
   },
   "header": {
+    "production": "",
     "activePlanningSessions_one": "",
     "activePlanningSessions_other": "",
     "addFirstScript": "添加第一个脚本",
@@ -3293,6 +3294,43 @@
       "loadMoreFailed": "",
       "truncated": ""
     }
+  },
+  "production": {
+    "active": "",
+    "close": "",
+    "confirmDeploy": "",
+    "confirmMerge": "",
+    "confirmRestart": "",
+    "confirmRestartFusion": "",
+    "confirmUpdate": "",
+    "deploy": "",
+    "deployTitle": "",
+    "deployedState": "",
+    "fusionHint": "",
+    "fusionTitle": "",
+    "inactive": "",
+    "loading": "",
+    "localChangesKept": "",
+    "mergeButton": "",
+    "mergeCommitNote": "",
+    "mergeSummary": "",
+    "mergeTitle": "",
+    "merged": "",
+    "moreCommits": "",
+    "neverDeployed": "",
+    "noOps": "",
+    "refresh": "",
+    "restart": "",
+    "restartFusion": "",
+    "runStatus": {
+      "failed": "",
+      "running": "",
+      "success": ""
+    },
+    "runsTitle": "",
+    "title": "",
+    "unreachable": "",
+    "update": ""
   },
   "projectAnalysis": {
     "applied": "",

@@ -1457,3 +1457,10 @@ export type {
   AnalysisFeature,
   AnalysisGoal,
 } from "./missions/project-analysis.js";
+
+/*
+ * FNXC:ProductionOps 2026-11-15-12:00:
+ * Production panel client, re-exported for `../api` consumers.
+ */
+export { fetchProductionStatus, mergeIntegrationToProduction, startProductionAction, fetchProductionRunLog } from "./production.js";
+export type { ProductionStatus, ProductionRun } from "./production.js";

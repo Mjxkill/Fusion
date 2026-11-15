@@ -3069,6 +3069,7 @@
     "unavailable": "Branch group unavailable"
   },
   "header": {
+    "production": "Production",
     "activePlanningSessions_one": "{{count}} active planning session",
     "activePlanningSessions_other": "{{count}} active planning sessions",
     "addFirstScript": "Add your first script",
@@ -3306,6 +3307,43 @@
       "loadMoreFailed": "Could not load more recommendations.",
       "truncated": "Showing the first 20 pages. Refresh to see the latest recommendations."
     }
+  },
+  "production": {
+    "active": "running",
+    "close": "Close",
+    "confirmDeploy": "Deploy {{branch}}? Changed services are rebuilt and restarted.",
+    "confirmMerge": "Merge {{count}} commits from {{from}} into {{to}}?",
+    "confirmRestart": "Restart {{unit}}?",
+    "confirmRestartFusion": "Restart Fusion once running agents have finished?",
+    "confirmUpdate": "Build and install Fusion from {{branch}}, then restart it?",
+    "deploy": "Deploy",
+    "deployTitle": "Deployment",
+    "deployedState": "Deployed: {{deployed}} — branch: {{head}} ({{count}} commits to deploy)",
+    "fusionHint": "Engines are paused, running agents are allowed to finish, then Fusion restarts and engines resume. Update also builds and installs branch {{branch}} first; if the new version does not start, the previous one is restored.",
+    "fusionTitle": "Fusion",
+    "inactive": "stopped",
+    "loading": "Loading…",
+    "localChangesKept": "Uncommitted local changes are not touched by the merge and stay as they are: {{files}}",
+    "mergeButton": "Merge into {{to}}",
+    "mergeCommitNote": "{{to}} has {{count}} commits that {{from}} does not: a merge commit will be created.",
+    "mergeSummary": "{{count}} commits, {{files}} files.",
+    "mergeTitle": "{{from}} → {{to}}",
+    "merged": "{{count}} commits merged into {{to}} ({{sha}}).",
+    "moreCommits": "… and {{count}} more",
+    "neverDeployed": "No deployment recorded yet: the first deploy rebuilds and restarts every service.",
+    "noOps": "No deploy or restart action is configured for this project. Declare it in /etc/fusion/ops.json to get those buttons.",
+    "refresh": "Refresh",
+    "restart": "Restart",
+    "restartFusion": "Restart Fusion",
+    "runStatus": {
+      "failed": "failed",
+      "running": "running",
+      "success": "success"
+    },
+    "runsTitle": "Recent actions",
+    "title": "Production",
+    "unreachable": "Fusion is not answering (restart in progress?). Retrying…",
+    "update": "Update Fusion"
   },
   "projectAnalysis": {
     "applied": "Applied: {{missions}} missions, {{milestones}} milestones, {{slices}} slices and {{features}} features created; {{updated}} features updated; {{goals}} goals created.",

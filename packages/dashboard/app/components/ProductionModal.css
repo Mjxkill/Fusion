@@ -1,0 +1,106 @@
+/*
+FNXC:ProductionOps 2026-11-15-12:00:
+Production panel: wider than the default modal, scrolling body, compact service and run rows.
+*/
+.production-modal {
+  width: min(820px, calc(100vw - var(--space-lg) * 2));
+  max-height: 88vh;
+}
+
+.production-modal__body {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.production-modal__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+}
+
+.production-modal__section > button {
+  align-self: flex-start;
+}
+
+.production-modal__commits {
+  margin: 0;
+  padding-left: var(--space-lg);
+  max-height: 220px;
+  overflow-y: auto;
+  font-size: var(--font-size-sm);
+}
+
+.production-modal__services,
+.production-modal__runs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.production-modal__services li,
+.production-modal__runs li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.production-modal__service-label {
+  font-weight: 600;
+}
+
+.production-modal__dot {
+  width: var(--space-sm);
+  height: var(--space-sm);
+  border-radius: 50%;
+}
+
+.production-modal__dot--up {
+  background: var(--done);
+}
+
+.production-modal__dot--down {
+  background: var(--danger);
+}
+
+.production-modal__actions {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.production-modal__hint {
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.production-modal__blocked,
+.production-modal__error,
+.production-modal__run--failed {
+  color: var(--danger);
+}
+
+.production-modal__notice,
+.production-modal__run--success {
+  color: var(--done);
+}
+
+.production-modal__log {
+  max-height: 320px;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm);
+}

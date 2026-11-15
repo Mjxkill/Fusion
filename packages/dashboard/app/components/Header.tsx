@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Settings, LayoutGrid, List, Search, X, Activity, MoreHorizontal, Clock, Folder, History, GitBranch, Monitor, Workflow, Bot, Target, Grid3X3, Mail, MessageSquare, Check, Zap, Sparkles, FileText, Brain, Lock, Gauge, Lightbulb, ChevronDown, ChevronRight, PanelRight, Plus, Star } from "lucide-react";
+import { ProductionModal } from "./ProductionModal";
+import { Settings, LayoutGrid, List, Search, X, Activity, MoreHorizontal, Clock, Folder, History, GitBranch, Monitor, Workflow, Bot, Target, Grid3X3, Mail, MessageSquare, Check, Zap, Sparkles, FileText, Brain, Lock, Gauge, Lightbulb, ChevronDown, ChevronRight, PanelRight, Plus, Star, Rocket } from "lucide-react";
 import "./Header.css";
 // ProjectSelector styles used by the imported standalone component.
 import "./ProjectSelector.css";
@@ -169,6 +170,7 @@ export function Header({
   pluginDashboardViews = [],
   shellConnectionControl,
 }: HeaderProps) {
+  const [showProduction, setShowProduction] = useState(false);
   const { t } = useTranslation("app");
   const mode: ViewportMode = useViewportMode();
   const isMobile = mode === "mobile";
@@ -1057,6 +1059,23 @@ export function Header({
             <Settings size={16} />
           </button>
         )}
+
+        {/*
+        FNXC:ProductionOps 2026-11-15-12:00:
+        Production panel (merge integration → production, deploy, restart, update Fusion) for the current project.
+        */}
+        {projectId && (
+          <button
+            className="btn-icon"
+            onClick={() => setShowProduction(true)}
+            title={t("header.production", "Production")}
+            aria-label={t("header.production", "Production")}
+            data-testid="header-production-btn"
+          >
+            <Rocket size={16} />
+          </button>
+        )}
+        {showProduction && <ProductionModal projectId={projectId} onClose={() => setShowProduction(false)} />}
 
         {/* Plugin UI slot for header actions */}
         <PluginSlot slotId="header-action" projectId={projectId} />
